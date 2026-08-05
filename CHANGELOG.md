@@ -24,6 +24,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - PermissionAlertView info struct for permission-blocked state
 - MockHotkeyService test double implementing HotkeyServiceProtocol
 - 99 automated tests covering state transitions, config, permissions, hotkey flows, and shortcut capture
+- Pre-M3 technical spike (`Spike/`): five isolated probes for microphone in-memory capture, active Quartz event tap, synthetic Command-V with race-safe clipboard restore, SpeechAnalyzer availability, and WhisperKit in-memory transcription
+- `docs/SPIKE_REPORT.md`: consolidated spike findings, per-probe verification matrix, and outstanding owner validation steps
+- `docs/DECISIONS.md`: ADR-001 through ADR-006 covering toolchain, SpeechAnalyzer availability, WhisperKit pinning, and event-tap permission behavior
+- M3: `AudioRecording` protocol + `AVAudioEngineRecorder` — AVAudioEngine input-tap capture converted to mono 16 kHz Float32 entirely in memory; no audio ever written to disk
+- M3: `AudioPolicy` — rejects dictations under 250 ms or with no meaningful signal; 120 s maximum duration
+- M3: `WhisperKitEngine` + injectable `WhisperTranscribing` client seam; WhisperKit v1.0.0 behind `#if canImport` until the SPM dependency is wired (ADR-007)
+- M3: `TranscriptionCoordinator` — engine selection (`automatic`/`systemSpeech`/`whisperKit`) with WhisperKit fallback, background model preparation, observable download/readiness state for Settings
+- M3: `DictationController` — drives hotkey → record → validate → transcribe → paste-seam pipeline with max-duration timer and escape cancel; every failure path returns to idle
+- M3: `PasteServicing` protocol + placeholder (real synthetic-paste implementation is M4 scope)
+- M3: Transcription settings show live model preparation status and reconfigure the engine on selection change
+- M3: 27 new unit tests (audio policy, engine mapping/trim/errors, coordinator selection/preparation/fallback, full pipeline happy path and every rejection path) with five new test doubles
+
+### Changed
+
+- WhisperKit pinned to v1.0.0 (commit `25c62997041c134b03ca82731ce2f6fd2cae1eb9`, MIT); `CapturedAudio` will carry `[Float]` 16 kHz mono to match the engine's `transcribe(audioArrays:)` entry point
+
+### Notes
+
+- SpeechAnalyzer/SpeechTranscriber remain **UNVERIFIED** for this project: absent from the macOS 15.0 SDK in Xcode 16.0 and unavailable at runtime on macOS 15.7.4. M3 uses WhisperKit; the engine stays runtime-configurable so M5 can add System Speech behind the existing `TranscriptionEngine` protocol (ADR-003, ADR-005)
 
 ## [0.0.1] - 2026-08-05
 

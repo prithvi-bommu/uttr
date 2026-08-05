@@ -9,11 +9,30 @@ final class AppEnvironment {
     let configStore = ConfigurationStore()
     let permissionService: PermissionChecking = RealPermissionService()
     let hotkeyService: HotkeyServiceProtocol = EventTapHotkeyService()
+    let transcriptionCoordinator = TranscriptionCoordinator()
+    private(set) var dictationController: DictationController!
     private let logger = Logger(subsystem: "com.uttr.app", category: "app")
 
     private init() {
         configStore.load()
+        dictationController = DictationController(
+            appState: appState,
+            recorder: AVAudioEngineRecorder(),
+            coordinator: transcriptionCoordinator,
+            pasteService: PlaceholderPasteService()
+        )
+        configureTranscription()
         startHotkeyService()
+    }
+
+    /// (Re)applies engine/model selection. Called at launch and whenever the
+    /// Transcription settings change. Preparation runs in the background and
+    /// never blocks menu-bar launch (spec §8).
+    func configureTranscription() {
+        transcriptionCoordinator.configure(
+            selection: configStore.settings.transcriptionEngine,
+            whisperModel: configStore.settings.whisperModel
+        )
     }
 
     func startHotkeyService() {
@@ -37,13 +56,19 @@ final class AppEnvironment {
                 appState.handle(.permissionBlocked(blocker))
                 return
             }
-            appState.handle(.hotkeyDown)
+            if appState.handle(.hotkeyDown) {
+                dictationController.recordingStarted()
+            }
 
         case .hotkeyUp:
-            appState.handle(.hotkeyUp)
+            if appState.handle(.hotkeyUp) {
+                dictationController.recordingEnded()
+            }
 
         case .escapePressed:
-            appState.handle(.escapePressed)
+            if appState.handle(.escapePressed) {
+                dictationController.recordingCancelled()
+            }
 
         case .shortcutCaptured(let keyCode, let modifiers):
             try? configStore.update {

@@ -6,19 +6,25 @@ struct SettingsView: View {
     private let permissionService: PermissionChecking
     private let onBeginCapture: () -> Void
     private let onCancelCapture: () -> Void
+    private let transcriptionCoordinator: TranscriptionCoordinator?
+    private let onTranscriptionChanged: (() -> Void)?
 
     init(
         store: ConfigurationStore,
         appState: AppState,
         permissionService: PermissionChecking,
         onBeginCapture: @escaping () -> Void,
-        onCancelCapture: @escaping () -> Void
+        onCancelCapture: @escaping () -> Void,
+        transcriptionCoordinator: TranscriptionCoordinator? = nil,
+        onTranscriptionChanged: (() -> Void)? = nil
     ) {
         self._store = State(initialValue: store)
         self.appState = appState
         self.permissionService = permissionService
         self.onBeginCapture = onBeginCapture
         self.onCancelCapture = onCancelCapture
+        self.transcriptionCoordinator = transcriptionCoordinator
+        self.onTranscriptionChanged = onTranscriptionChanged
     }
 
     var body: some View {
@@ -31,8 +37,12 @@ struct SettingsView: View {
             )
             .tabItem { Label("General", systemImage: "gear") }
 
-            TranscriptionSettingsView(store: store)
-                .tabItem { Label("Transcription", systemImage: "waveform") }
+            TranscriptionSettingsView(
+                store: store,
+                coordinator: transcriptionCoordinator,
+                onSelectionChanged: onTranscriptionChanged
+            )
+            .tabItem { Label("Transcription", systemImage: "waveform") }
 
             PolishSettingsView(store: store)
                 .tabItem { Label("Text Polish", systemImage: "sparkles") }

@@ -25,6 +25,24 @@ struct AppStateTests {
         #expect(state.dictationState == .transcribing)
     }
 
+    @Test("transcribing -> idle on no usable audio (post-release rejection)")
+    func noUsableAudioAfterReleaseReturnsToIdle() {
+        // Regression: audio validation runs after hotkey release, so the
+        // rejection arrives in .transcribing. Before the fix this event was
+        // ignored and the app was stuck in .transcribing, silently ignoring
+        // every subsequent hotkey press.
+        let state = AppState()
+        state.handle(.hotkeyDown)
+        state.handle(.hotkeyUp)
+        #expect(state.dictationState == .transcribing)
+        let handled = state.handle(.noUsableAudio)
+        #expect(handled)
+        #expect(state.dictationState == .idle)
+        // And the next dictation must start normally.
+        #expect(state.handle(.hotkeyDown))
+        #expect(state.dictationState.isRecording)
+    }
+
     @Test("transcribing -> polishing on transcription completed")
     func transcriptionCompletedGoesToPolishing() {
         let state = AppState()

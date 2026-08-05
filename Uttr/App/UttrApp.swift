@@ -24,7 +24,9 @@ struct UttrApp: App {
                 appState: env.appState,
                 permissionService: env.permissionService,
                 onBeginCapture: { env.beginShortcutCapture() },
-                onCancelCapture: { env.cancelShortcutCapture() }
+                onCancelCapture: { env.cancelShortcutCapture() },
+                transcriptionCoordinator: env.transcriptionCoordinator,
+                onTranscriptionChanged: { env.configureTranscription() }
             )
         }
 
