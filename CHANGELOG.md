@@ -16,7 +16,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Onboarding flow shell with 5-step first-run experience and skip confirmation
 - PermissionChecking protocol with injectable test doubles
 - FileSystemProtocol for testable file operations
-- 73 automated tests covering state transitions, config encoding, validation rules, permissions, and sanitization
+- RealPermissionService: microphone (AVCaptureDevice), input monitoring (CGEvent test), accessibility (AXIsProcessTrusted)
+- EventTapHotkeyService: CGEventTap on dedicated serial queue, hold-to-talk with key-repeat suppression
+- AppEnvironment wiring layer connecting hotkey events to AppState transitions
+- Shortcut capture mode with Fn/Globe rejection, bare-key rejection, and reserved-shortcut guard
+- Shortcut display and Change Shortcut UI in General settings
+- PermissionAlertView info struct for permission-blocked state
+- MockHotkeyService test double implementing HotkeyServiceProtocol
+- 99 automated tests covering state transitions, config, permissions, hotkey flows, and shortcut capture
 
 ## [0.0.1] - 2026-08-05
 
