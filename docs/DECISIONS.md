@@ -109,15 +109,13 @@ Format defined in `UTTR_MASTER_AGENT_OPERATING_PROMPT.md`.
 
 ---
 
-## ADR-007: Xcode 16.0 cannot add the WhisperKit SPM dependency to this project — package wiring deferred to Xcode 16.3+
+## ADR-007: WhisperKit SPM dependency wired — initial failure was duplicate pbxproj object IDs, not the Xcode version (SUPERSEDED diagnosis corrected)
 
-- Date: 2026-08-05
-- Status: Needs owner decision
-- Context: M3 requires WhisperKit v1.0.0 as an SPM dependency of the app target. The project was created by Xcode 16.4 (`objectVersion = 77`, `CreatedOnToolsVersion = 16.4`, minimized reference proxies) — the same generation CI pins (macos-15 / Xcode 16.4). The locally installed Xcode is 16.0.
-- Evidence: Adding a textbook-minimal `XCRemoteSwiftPackageReference` (isolated to just the section + one `packageReferences` entry, no product dependency) makes Xcode 16.0's `xcodebuild` crash while parsing: `-[XCRemoteSwiftPackageReference _setOwner:]: unrecognized selector` → "The project 'Uttr' is damaged". Reverting the reference restores parsing. Downgrading `objectVersion` to 70 and removing `minimizedProjectReferenceProxies` did not help. The same pbxproj shape is what Xcode 16.3+/16.4 generates for SPM dependencies.
-- Options considered:
-  1. **Install Xcode 16.4 via Xcodes (recommended).** Matches CI and the project's creation version; the package-reference patch then applies cleanly and `Package.resolved` gets pinned at commit `25c62997041c134b03ca82731ce2f6fd2cae1eb9`.
-  2. Regenerate the project in Xcode 16.0 format. Rejected: diverges from CI's toolchain, churns the whole pbxproj, and loses 16.3+ project features for no product benefit.
-- Decision: Code ships now behind `#if canImport(WhisperKit)` in `Uttr/Services/WhisperKitEngine.swift`: with the package absent the app builds and `WhisperKitClient` reports `engineNotReady`; once the package is wired the real client compiles in with zero further code change. The `WhisperTranscribing` seam means all engine logic is unit-tested either way.
-- Consequences: Real end-to-end transcription (model download + audio → text) cannot be exercised until Xcode 16.4 is installed and the package reference is added. All other M3 logic (capture, policy, selection, pipeline, paste seam) is complete and covered by tests.
-- Validation required: owner installs Xcode 16.4, agent re-applies the package patch, `swift package resolve`/first build pins `Package.resolved`, then the M3 Validator Packet runs end-to-end with the tiny.en model.
+- Date: 2026-08-05 (corrected same day)
+- Status: Accepted
+- Context: First attempt to add the WhisperKit package reference crashed `xcodebuild` with `-[XCRemoteSwiftPackageReference _setOwner:]: unrecognized selector`, initially attributed to Xcode 16.0 being unable to parse this 16.4-format project.
+- Evidence (corrected): the identical crash reproduced on Xcode 16.4. Root cause: the hand-written patch reused object IDs `E0000090`/`E0000092`/`E0000093`, which already identified XCBuildConfiguration objects in this project — the parser resolved the `packageReferences` entry to a build configuration and crashed. Replacing them with unique 24-hex IDs fixed parsing on 16.4 immediately.
+- Decision: WhisperKit v1.0.0 wired as `exactVersion` package reference with unique IDs; `Package.resolved` pinned (WhisperKit 1.0.0 + transitive swift-argument-parser 1.8.2). The `#if canImport(WhisperKit)` guard in `WhisperKitEngine.swift` is retained as a harmless belt-and-suspenders for package-less builds.
+- Consequences: The agent-session workaround set ADR-005 documented gains one more flag: SPM manifest compilation also cannot nest in the agent sandbox, so agent-run resolves/builds pass `-IDEPackageSupportDisableManifestSandbox=YES`. Owner builds and CI are unaffected.
+- Lesson recorded: never hand-pick short sequential pbxproj IDs; verify uniqueness or use full 24-hex random IDs.
+- Validation required: end-to-end dictation with the tiny.en model (M3 Validator Packet).

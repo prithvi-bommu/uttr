@@ -71,33 +71,48 @@ final class WhisperKitEngine: TranscriptionEngine {
 /// still builds and reports `engineNotReady` instead of transcribing.
 /// Tracked in docs/DECISIONS.md (ADR-007).
 #if canImport(WhisperKit)
+/// `@unchecked Sendable`: WhisperKit's class is not Sendable; access to the
+/// stored instance is serialized through the synchronous locked accessors
+/// below, and callers (TranscriptionCoordinator) never run loadModel and
+/// transcribe concurrently for the same dictation.
 final class WhisperKitClient: WhisperTranscribing, @unchecked Sendable {
     private let lock = NSLock()
     private var whisperKit: WhisperKit?
     private var loadedModel: String?
 
-    func loadModel(_ model: String) async throws {
+    // Synchronous accessors keep NSLock usage out of async contexts
+    // (NSLock.lock/unlock are annotated noasync in Swift 6).
+    private func currentInstance() -> WhisperKit? {
         lock.lock()
-        let alreadyLoaded = loadedModel == model && whisperKit != nil
-        lock.unlock()
-        if alreadyLoaded { return }
+        defer { lock.unlock() }
+        return whisperKit
+    }
+
+    private func isLoaded(_ model: String) -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return loadedModel == model && whisperKit != nil
+    }
+
+    private func store(_ instance: WhisperKit, model: String) {
+        lock.lock()
+        defer { lock.unlock() }
+        whisperKit = instance
+        loadedModel = model
+    }
+
+    func loadModel(_ model: String) async throws {
+        if isLoaded(model) { return }
 
         // Downloads into WhisperKit's application-support location on first
         // use; never into the app bundle. No audio involved.
         let config = WhisperKitConfig(model: model)
         let instance = try await WhisperKit(config)
-
-        lock.lock()
-        whisperKit = instance
-        loadedModel = model
-        lock.unlock()
+        store(instance, model: model)
     }
 
     func transcribe(samples: [Float]) async throws -> String {
-        lock.lock()
-        let instance = whisperKit
-        lock.unlock()
-        guard let instance else { throw UttrError.engineNotReady }
+        guard let instance = currentInstance() else { throw UttrError.engineNotReady }
 
         let results = await instance.transcribe(audioArrays: [samples])
         guard let first = results.first, let transcription = first else {
@@ -109,7 +124,7 @@ final class WhisperKitClient: WhisperTranscribing, @unchecked Sendable {
 #else
 /// Placeholder used only when the WhisperKit package is not yet wired into
 /// the project (pre-Xcode-16.3 toolchain). Always reports not ready.
-final class WhisperKitClient: WhisperTranscribing, @unchecked Sendable {
+final class WhisperKitClient: WhisperTranscribing, Sendable {
     func loadModel(_ model: String) async throws {
         throw UttrError.engineNotReady
     }

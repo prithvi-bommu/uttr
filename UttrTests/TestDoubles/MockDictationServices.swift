@@ -19,25 +19,22 @@ final class MockAudioRecorder: AudioRecording, @unchecked Sendable {
     private(set) var cancelCount = 0
 
     func startRecording() async throws {
-        lock.lock()
-        startCount += 1
-        let error = startError
-        lock.unlock()
+        let error: Error? = lock.withLock {
+            startCount += 1
+            return startError
+        }
         if let error { throw error }
     }
 
     func stopRecording() async -> CapturedAudio {
-        lock.lock()
-        stopCount += 1
-        let audio = audioToReturn
-        lock.unlock()
-        return audio
+        lock.withLock {
+            stopCount += 1
+            return audioToReturn
+        }
     }
 
     func cancelRecording() async {
-        lock.lock()
-        cancelCount += 1
-        lock.unlock()
+        lock.withLock { cancelCount += 1 }
     }
 }
 
@@ -60,28 +57,25 @@ final class MockTranscriptionEngine: TranscriptionEngine, @unchecked Sendable {
     }
 
     func prepare() async throws {
-        lock.lock()
-        prepareCount += 1
-        let error = prepareError
-        lock.unlock()
+        let error: Error? = lock.withLock {
+            prepareCount += 1
+            return prepareError
+        }
         if let error { throw error }
     }
 
     func transcribe(_ audio: CapturedAudio) async throws -> String {
-        lock.lock()
-        transcribeCount += 1
-        lastAudio = audio
-        let error = transcribeError
-        let text = transcriptToReturn
-        lock.unlock()
+        let (error, text): (Error?, String) = lock.withLock {
+            transcribeCount += 1
+            lastAudio = audio
+            return (transcribeError, transcriptToReturn)
+        }
         if let error { throw error }
         return text
     }
 
     func cancelCurrentWork() async {
-        lock.lock()
-        cancelCount += 1
-        lock.unlock()
+        lock.withLock { cancelCount += 1 }
     }
 }
 
@@ -128,19 +122,18 @@ final class MockWhisperClient: WhisperTranscribing, @unchecked Sendable {
     private(set) var receivedSamples: [[Float]] = []
 
     func loadModel(_ model: String) async throws {
-        lock.lock()
-        loadedModels.append(model)
-        let error = loadError
-        lock.unlock()
+        let error: Error? = lock.withLock {
+            loadedModels.append(model)
+            return loadError
+        }
         if let error { throw error }
     }
 
     func transcribe(samples: [Float]) async throws -> String {
-        lock.lock()
-        receivedSamples.append(samples)
-        let error = transcribeError
-        let text = textToReturn
-        lock.unlock()
+        let (error, text): (Error?, String) = lock.withLock {
+            receivedSamples.append(samples)
+            return (transcribeError, textToReturn)
+        }
         if let error { throw error }
         return text
     }
@@ -153,11 +146,10 @@ final class MockPasteService: PasteServicing, @unchecked Sendable {
     private(set) var pastedTexts: [String] = []
 
     func paste(_ text: String) async -> Bool {
-        lock.lock()
-        pastedTexts.append(text)
-        let result = succeed
-        lock.unlock()
-        return result
+        lock.withLock {
+            pastedTexts.append(text)
+            return succeed
+        }
     }
 }
 
@@ -168,13 +160,9 @@ final class MockDictationClock: DictationClock, @unchecked Sendable {
     private(set) var sleepCount = 0
 
     func sleep(for duration: TimeInterval) async throws {
-        lock.lock()
-        sleepCount += 1
-        lock.unlock()
+        lock.withLock { sleepCount += 1 }
         try await withCheckedThrowingContinuation { continuation in
-            lock.lock()
-            continuations.append(continuation)
-            lock.unlock()
+            lock.withLock { continuations.append(continuation) }
         }
     }
 
