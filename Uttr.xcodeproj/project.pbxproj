@@ -6,9 +6,6 @@
 	objectVersion = 77;
 	objects = {
 
-/* Begin PBXBuildFile section */
-/* End PBXBuildFile section */
-
 /* Begin PBXContainerItemProxy section */
 		E0000020 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -25,6 +22,12 @@
 			remoteInfo = Uttr;
 		};
 /* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		6165CF083023BC4E0085D938 /* Uttr.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Uttr.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		6165CF093023BC4E0085D938 /* UttrTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = UttrTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		6165CF0A3023BC4E0085D938 /* UttrUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = UttrUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		E0000040 /* Uttr */ = {
@@ -44,13 +47,40 @@
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
+/* Begin PBXFrameworksBuildPhase section */
+		E0000071 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E0000074 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E0000077 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
 /* Begin PBXGroup section */
-		E0000002 /* = */ = {
+		E0000002 = {
 			isa = PBXGroup;
 			children = (
 				E0000040 /* Uttr */,
 				E0000041 /* UttrTests */,
 				E0000042 /* UttrUITests */,
+				6165CF083023BC4E0085D938 /* Uttr.app */,
+				6165CF093023BC4E0085D938 /* UttrTests.xctest */,
+				6165CF0A3023BC4E0085D938 /* UttrUITests.xctest */,
 			);
 			sourceTree = "<group>";
 		};
@@ -76,7 +106,7 @@
 			packageProductDependencies = (
 			);
 			productName = Uttr;
-			productReference = E0000080 /* Uttr.app */;
+			productReference = 6165CF083023BC4E0085D938 /* Uttr.app */;
 			productType = "com.apple.product-type.application";
 		};
 		E0000011 /* UttrTests */ = {
@@ -99,7 +129,7 @@
 			packageProductDependencies = (
 			);
 			productName = UttrTests;
-			productReference = E0000081 /* UttrTests.xctest */;
+			productReference = 6165CF093023BC4E0085D938 /* UttrTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
 		E0000012 /* UttrUITests */ = {
@@ -122,7 +152,7 @@
 			packageProductDependencies = (
 			);
 			productName = UttrUITests;
-			productReference = E0000082 /* UttrUITests.xctest */;
+			productReference = 6165CF0A3023BC4E0085D938 /* UttrUITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
 		};
 /* End PBXNativeTarget section */
@@ -171,54 +201,6 @@
 		};
 /* End PBXProject section */
 
-/* Begin PBXSourcesBuildPhase section */
-		E0000070 /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		E0000073 /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		E0000076 /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-/* End PBXSourcesBuildPhase section */
-
-/* Begin PBXFrameworksBuildPhase section */
-		E0000071 /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		E0000074 /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		E0000077 /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-/* End PBXFrameworksBuildPhase section */
-
 /* Begin PBXResourcesBuildPhase section */
 		E0000072 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
@@ -243,6 +225,30 @@
 		};
 /* End PBXResourcesBuildPhase section */
 
+/* Begin PBXSourcesBuildPhase section */
+		E0000070 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E0000073 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E0000076 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
 /* Begin PBXTargetDependency section */
 		E0000021 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -255,30 +261,6 @@
 			targetProxy = E0000030 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
-
-/* Begin PBXProductReference section */
-		E0000080 /* Uttr.app */ = {
-			isa = PBXFileReference;
-			explicitFileType = wrapper.application;
-			includeInIndex = 0;
-			path = Uttr.app;
-			sourceTree = BUILT_PRODUCTS_DIR;
-		};
-		E0000081 /* UttrTests.xctest */ = {
-			isa = PBXFileReference;
-			explicitFileType = wrapper.cfbundle;
-			includeInIndex = 0;
-			path = UttrTests.xctest;
-			sourceTree = BUILT_PRODUCTS_DIR;
-		};
-		E0000082 /* UttrUITests.xctest */ = {
-			isa = PBXFileReference;
-			explicitFileType = wrapper.cfbundle;
-			includeInIndex = 0;
-			path = UttrUITests.xctest;
-			sourceTree = BUILT_PRODUCTS_DIR;
-		};
-/* End PBXProductReference section */
 
 /* Begin XCBuildConfiguration section */
 		E0000090 /* Debug */ = {
@@ -561,7 +543,6 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
-
 	};
 	rootObject = E0000001 /* Project object */;
 }

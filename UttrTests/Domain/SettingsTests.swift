@@ -1,9 +1,12 @@
-import Testing
 import Foundation
+import Testing
 @testable import Uttr
 
 @Suite("UttrSettings")
 struct SettingsTests {
+
+    // MARK: - Encoding
+
     @Test("default settings encode and decode")
     func defaultRoundTrip() throws {
         let settings = UttrSettings.default
@@ -11,6 +14,19 @@ struct SettingsTests {
         let decoded = try JSONDecoder().decode(UttrSettings.self, from: data)
         #expect(decoded == settings)
     }
+
+    @Test("encoded JSON matches expected schema")
+    func encodedSchema() throws {
+        let data = try JSONEncoder().encode(UttrSettings.default)
+        let json = try JSONSerialization.jsonObject(with: data) as! [String: Any]
+        #expect(json["schemaVersion"] as? Int == 1)
+        #expect(json["hasCompletedOnboarding"] as? Bool == false)
+        #expect(json["transcriptionEngine"] as? String == "automatic")
+        #expect(json["whisperModel"] as? String == "small.en")
+        #expect(json["startAtLogin"] as? Bool == false)
+    }
+
+    // MARK: - Defaults
 
     @Test("default schema version is 1")
     func schemaVersion() {
@@ -48,5 +64,149 @@ struct SettingsTests {
     @Test("start at login disabled by default")
     func startAtLoginDefault() {
         #expect(UttrSettings.default.startAtLogin == false)
+    }
+
+    @Test("default timeout is 8 seconds")
+    func defaultTimeout() {
+        #expect(UttrSettings.default.cloudPolish.timeoutSeconds == 8)
+    }
+
+    @Test("default OpenAI model")
+    func defaultOpenAIModel() {
+        #expect(UttrSettings.default.cloudPolish.openAI.model == "gpt-5.6-luna")
+    }
+
+    @Test("default Anthropic model")
+    func defaultAnthropicModel() {
+        #expect(UttrSettings.default.cloudPolish.anthropic.model == "claude-haiku-4-5")
+    }
+
+    // MARK: - Validation
+
+    @Test("valid default settings pass validation")
+    func validDefault() throws {
+        try UttrSettings.default.validate()
+    }
+
+    @Test("unsupported schema version fails validation")
+    func unsupportedSchema() {
+        var settings = UttrSettings.default
+        settings.schemaVersion = 2
+        #expect(throws: UttrSettings.ValidationError.unsupportedSchemaVersion(2)) {
+            try settings.validate()
+        }
+    }
+
+    @Test("missing modifier fails validation")
+    func missingModifier() {
+        var settings = UttrSettings.default
+        settings.hotkey.modifiers = []
+        #expect(throws: UttrSettings.ValidationError.hotkeyMissingModifier) {
+            try settings.validate()
+        }
+    }
+
+    @Test("zero key code fails validation")
+    func zeroKeyCode() {
+        var settings = UttrSettings.default
+        settings.hotkey.keyCode = 0
+        #expect(throws: UttrSettings.ValidationError.hotkeyMissingKey) {
+            try settings.validate()
+        }
+    }
+
+    @Test("polish enabled with blank key fails")
+    func polishWithBlankKey() {
+        var settings = UttrSettings.default
+        settings.cloudPolish.enabled = true
+        settings.cloudPolish.provider = .anthropic
+        settings.cloudPolish.anthropic.apiKey = "  "
+        #expect(throws: UttrSettings.ValidationError.polishEnabledWithoutKey) {
+            try settings.validate()
+        }
+    }
+
+    @Test("polish enabled with blank model fails")
+    func polishWithBlankModel() {
+        var settings = UttrSettings.default
+        settings.cloudPolish.enabled = true
+        settings.cloudPolish.provider = .anthropic
+        settings.cloudPolish.anthropic.apiKey = "sk-test"
+        settings.cloudPolish.anthropic.model = ""
+        #expect(throws: UttrSettings.ValidationError.polishEnabledWithoutModel) {
+            try settings.validate()
+        }
+    }
+
+    @Test("polish with none provider passes even with blank keys")
+    func polishNoneProviderPasses() throws {
+        var settings = UttrSettings.default
+        settings.cloudPolish.enabled = true
+        settings.cloudPolish.provider = .none
+        try settings.validate()
+    }
+
+    @Test("timeout below 3 fails")
+    func timeoutTooLow() {
+        var settings = UttrSettings.default
+        settings.cloudPolish.timeoutSeconds = 2
+        #expect(throws: UttrSettings.ValidationError.timeoutOutOfRange) {
+            try settings.validate()
+        }
+    }
+
+    @Test("timeout above 20 fails")
+    func timeoutTooHigh() {
+        var settings = UttrSettings.default
+        settings.cloudPolish.timeoutSeconds = 21
+        #expect(throws: UttrSettings.ValidationError.timeoutOutOfRange) {
+            try settings.validate()
+        }
+    }
+
+    // MARK: - Sanitization
+
+    @Test("unknown whisper model sanitized to small.en")
+    func sanitizeUnknownModel() {
+        var settings = UttrSettings.default
+        settings.whisperModel = "unknown-model"
+        settings.sanitize()
+        #expect(settings.whisperModel == "small.en")
+    }
+
+    @Test("valid whisper models are preserved")
+    func validModelsPreserved() {
+        for model in UttrSettings.validWhisperModels {
+            var settings = UttrSettings.default
+            settings.whisperModel = model
+            settings.sanitize()
+            #expect(settings.whisperModel == model)
+        }
+    }
+
+    @Test("timeout clamped to range")
+    func timeoutClamped() {
+        var settings = UttrSettings.default
+        settings.cloudPolish.timeoutSeconds = 1
+        settings.sanitize()
+        #expect(settings.cloudPolish.timeoutSeconds == 3)
+
+        settings.cloudPolish.timeoutSeconds = 50
+        settings.sanitize()
+        #expect(settings.cloudPolish.timeoutSeconds == 20)
+    }
+
+    // MARK: - Active provider config
+
+    @Test("active provider config returns correct provider")
+    func activeProviderConfig() {
+        var settings = UttrSettings.default
+        #expect(settings.activeProviderConfig == nil)
+
+        settings.cloudPolish.provider = .openAI
+        #expect(settings.activeProviderConfig == settings.cloudPolish.openAI)
+
+        settings.cloudPolish.provider = .anthropic
+        #expect(settings.activeProviderConfig == settings.cloudPolish.anthropic)
     }
 }
