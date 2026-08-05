@@ -3,6 +3,9 @@ DerivedData/
 build/
 *.xcuserdata
 *.xcworkspace
+!*.xcodeproj/project.xcworkspace
+!*.xcodeproj/project.xcworkspace/xcshareddata
+!*.xcodeproj/project.xcworkspace/xcshareddata/**
 xcuserdata/
 *.pbxuser
 !default.pbxuser
