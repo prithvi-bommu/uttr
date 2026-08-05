@@ -136,7 +136,7 @@ Full entries in `docs/DECISIONS.md`:
 
 ## 6. Outstanding owner actions
 
-1. Run `xcodebuild ... test` in Terminal to reconfirm the 99-test baseline on Xcode 16.0.
+1. ~~Run `xcodebuild ... test` in Terminal to reconfirm the test baseline on Xcode 16.0.~~ **Done 2026-08-05: owner ran the suite on `feat/m3-audio-whisperkit` (M0–M2 baseline + M3 tests) — passing.**
 2. Run probe 1 (`/tmp/p1 3`, speak ~3 s) and confirm nonzero frames, nonzero peak, and converter availability.
 3. Run probe 3 with TextEdit focused and confirm the paste lands and the clipboard is restored.
 4. Decide the disposition of this branch: merge the documentation only, or merge docs and delete `Spike/` per the operating prompt's "do not blindly merge exploratory code" rule.
