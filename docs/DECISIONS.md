@@ -15,15 +15,15 @@ Format defined in `UTTR_MASTER_AGENT_OPERATING_PROMPT.md`.
 - Consequences: M3 implementation can be authored against verified API surfaces (probe 5 used source inspection of the pinned dependency), but the milestone cannot be declared complete until `xcodebuild build`/`test` pass and the Validator Packet is executed on this Mac.
 - Validation required: install full Xcode, run `sudo xcode-select -s /Applications/Xcode.app`, then compile and run each probe per the header comments in `Spike/`.
 
-### Probe status matrix
+### Probe status matrix (updated 2026-08-05, post-Xcode-16.0 install)
 
 | # | Probe | Compile-verified | Runtime-verified | Notes |
 |---|-------|------------------|------------------|-------|
-| 1 | Mic auth + AVAudioEngine in-memory capture | No (ADR-002) | No | Requires terminal mic permission |
-| 2 | CGEventTap down/up/repeat/disable-recovery | No (ADR-002) | No (M2 logic proven via unit tests only) | Requires Input Monitoring |
-| 3 | Synthetic Cmd-V into TextEdit + clipboard restore | No (ADR-002) | No | Requires Accessibility |
-| 4 | SpeechAnalyzer/SpeechTranscriber availability | No (ADR-002) | **Known-unavailable at runtime** (macOS 15.7 < 26) | See ADR-003 |
-| 5 | WhisperKit in-memory transcription API | No (toolchain) | No | API surface verified by **source inspection** of pinned tag (ADR-004) |
+| 1 | Mic auth + AVAudioEngine in-memory capture | **Yes** (swiftc, Xcode 16.0) | No — needs owner terminal (TCC prompt) | Requires terminal mic permission |
+| 2 | CGEventTap down/up/repeat/disable-recovery | **Yes** | No — needs owner terminal (Input Monitoring) | M2 logic proven via unit tests only |
+| 3 | Synthetic Cmd-V into TextEdit + clipboard restore | **Yes** | No — needs owner terminal (Accessibility) | |
+| 4 | SpeechAnalyzer/SpeechTranscriber availability | **No — API absent from macOS 15.0 SDK** (Xcode 16.0) | Known-unavailable (macOS 15.7 < 26) | See ADR-003 and ADR-005 |
+| 5 | WhisperKit in-memory transcription API | No (needs SPM resolve in project) | No | API surface verified by **source inspection** of pinned tag (ADR-004) |
 
 ---
 
@@ -67,3 +67,23 @@ Format defined in `UTTR_MASTER_AGENT_OPERATING_PROMPT.md`.
 - Decision: Pin `WhisperKit` at `exact: "1.0.0"`. Record the resolved revision in the first dependency commit's `Package.resolved` (blocked until Xcode is installed — ADR-002).
 - Consequences: `AudioRecorder` should produce Float32 16 kHz mono samples (`[Float]`) as the canonical `CapturedAudio` payload, avoiding an extra Int16 conversion step, since the engine consumes `[Float]` directly.
 - Validation required: `swift package resolve` post-Xcode must produce a `Package.resolved` with revision `25c62997041c134b03ca82731ce2f6fd2cae1eb9`; probe 5 must load `tiny.en` and transcribe an in-memory buffer end-to-end on this Mac.
+
+---
+
+## ADR-005: Xcode 16.0 installed — CLT issue resolved; two environment constraints recorded
+
+- Date: 2026-08-05
+- Status: Accepted
+- Context: Full Xcode 16.0 (16A242d, macOS 15.0 SDK, Swift 6.0) was installed via Xcodes and activated with `xcode-select --switch`. This supersedes ADR-002's blocker. Baseline verification of the existing M0–M2 code and spike probes was performed.
+- Evidence:
+  - `xcodebuild -project Uttr.xcodeproj -scheme Uttr -configuration Debug build` → **BUILD SUCCEEDED**.
+  - Spike probes 1–3 compile cleanly with `swiftc -swift-version 6`.
+  - Probe 4 fails at compile time: `cannot find 'SpeechTranscriber' in scope` — the macOS 15.0 SDK in Xcode 16.0 does not contain the macOS 26 Speech APIs.
+  - `xcodebuild test` from the agent's sandboxed session fails with "Test runner never began executing tests after launching" — launching the GUI-hosted test runner requires an unsandboxed user session.
+- Constraints recorded:
+  1. **Agent-session sandbox:** Swift macro expansion (`@Observable`) requires `-disable-sandbox` (`OTHER_SWIFT_FLAGS='-disable-sandbox'`) when the agent invokes builds, because macOS forbids nested sandboxes. Owner-run builds in Terminal/Xcode and CI need no flag. Test execution (app-hosted runner) cannot run from the agent session at all; the owner runs `Scripts/test.sh` or `xcodebuild test` in Terminal.
+  2. **SDK gap for M5:** Building the System Speech engine (M5) will require an Xcode with the macOS 26 SDK. Until then, all `SpeechAnalyzer` references must stay behind `#if canImport`-safe patterns or be excluded, and CI must pin an Xcode version accordingly. This does not affect M3/M4.
+- Options considered: (1) upgrade to a newer Xcode now; (2) proceed with 16.0 for M3/M4 and revisit the SDK for M5. Option 2 chosen — M3 has no macOS 26 dependency.
+- Decision: Proceed to M3 on Xcode 16.0. Owner executes runtime probes 1–3 and the test suite in Terminal.
+- Consequences: The existing `SpeechAnalyzerEngine.swift` stub must remain API-free (no macOS 26 symbols) until M5's toolchain decision.
+- Validation required: owner runs probes 1–3 per `Spike/` headers and reports results; owner runs full test suite to reconfirm the 99-test baseline on Xcode 16.0.
