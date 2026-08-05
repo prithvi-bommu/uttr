@@ -20,7 +20,7 @@ Format defined in `UTTR_MASTER_AGENT_OPERATING_PROMPT.md`.
 | # | Probe | Compile-verified | Runtime-verified | Notes |
 |---|-------|------------------|------------------|-------|
 | 1 | Mic auth + AVAudioEngine in-memory capture | **Yes** (swiftc, Xcode 16.0) | No — needs owner terminal (TCC prompt) | Requires terminal mic permission |
-| 2 | CGEventTap down/up/repeat/disable-recovery | **Yes** | No — needs owner terminal (Input Monitoring) | M2 logic proven via unit tests only |
+| 2 | CGEventTap down/up/repeat/disable-recovery | **Yes** | **Yes — owner-verified 2026-08-05** | Active tap required Input Monitoring + Accessibility for the terminal AND a full terminal relaunch before `CGEvent.tapCreate` succeeded — validates spec §9's "quit and reopen" guidance |
 | 3 | Synthetic Cmd-V into TextEdit + clipboard restore | **Yes** | No — needs owner terminal (Accessibility) | |
 | 4 | SpeechAnalyzer/SpeechTranscriber availability | **No — API absent from macOS 15.0 SDK** (Xcode 16.0) | Known-unavailable (macOS 15.7 < 26) | See ADR-003 and ADR-005 |
 | 5 | WhisperKit in-memory transcription API | No (needs SPM resolve in project) | No | API surface verified by **source inspection** of pinned tag (ADR-004) |
@@ -87,3 +87,22 @@ Format defined in `UTTR_MASTER_AGENT_OPERATING_PROMPT.md`.
 - Decision: Proceed to M3 on Xcode 16.0. Owner executes runtime probes 1–3 and the test suite in Terminal.
 - Consequences: The existing `SpeechAnalyzerEngine.swift` stub must remain API-free (no macOS 26 symbols) until M5's toolchain decision.
 - Validation required: owner runs probes 1–3 per `Spike/` headers and reports results; owner runs full test suite to reconfirm the 99-test baseline on Xcode 16.0.
+
+---
+
+## ADR-006: Active event tap requires Input Monitoring **and** a process relaunch — confirms spec §9 restart guidance
+
+- Date: 2026-08-05
+- Status: Accepted
+- Context: Probe 2 builds the real hold-to-talk tap the spec requires — an *active* (`.defaultTap`) `CGEventTap` that swallows Control-Option-Space so no space character reaches the focused app. Whether such a tap can be created depends on TCC state at the moment of creation.
+- Evidence (owner-verified on the physical Mac, 2026-08-05):
+  - First run: `CGEvent.tapCreate` returned nil → probe printed "Input Monitoring permission missing for this terminal" and exited 1.
+  - After granting Input Monitoring (and Accessibility) to the terminal but **without** relaunching it: still failed.
+  - After fully quitting and reopening the terminal: tap created successfully; Control-Option-Space produced the expected `hotkey DOWN` / `hotkey UP` transitions with auto-repeat suppressed and no space character inserted.
+- Options considered: (1) attempt to detect and hot-reload TCC grants in-process; (2) accept the OS behavior and surface an explicit restart instruction in onboarding and the permissions UI.
+- Decision: Option 2. macOS evaluates Input Monitoring eligibility at process start; there is no supported way to pick up the grant without relaunching. Uttr must therefore instruct the user to quit and reopen after granting Input Monitoring or Accessibility.
+- Consequences:
+  - Validates the existing requirement in spec §9 and onboarding steps 3–4 — that guidance is now grounded in observed behavior rather than documentation.
+  - `PermissionService` must re-check status when the app regains focus, and the permission alert must offer a clear "quit and reopen" affordance rather than implying the grant takes effect immediately.
+  - The same constraint applies to anyone running the spike probes: grant, then relaunch the terminal.
+- Validation required: none for this finding — it is directly observed. Re-confirm inside the packaged app during M4/M7 fresh-install QA, since the app (unlike a terminal) is the process users will actually grant.
