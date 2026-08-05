@@ -1,0 +1,84 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    name: Build & Test
+    runs-on: macos-15
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_16.4.app/Contents/Developer
+
+      - name: Show environment
+        run: |
+          xcodebuild -version
+          swift --version
+          sw_vers
+
+      - name: Resolve packages
+        run: |
+          xcodebuild -project Uttr.xcodeproj \
+            -scheme Uttr \
+            -resolvePackageDependencies
+
+      - name: Lint
+        run: |
+          if command -v swiftlint &>/dev/null; then
+            swiftlint lint --strict
+          else
+            echo "SwiftLint not available, skipping"
+          fi
+
+      - name: Build
+        run: |
+          xcodebuild build \
+            -project Uttr.xcodeproj \
+            -scheme Uttr \
+            -configuration Debug \
+            -destination "platform=macOS,arch=arm64" \
+            ARCHS=arm64 \
+            CODE_SIGN_IDENTITY="-" \
+            CODE_SIGNING_REQUIRED=NO
+
+      - name: Test
+        run: |
+          xcodebuild test \
+            -project Uttr.xcodeproj \
+            -scheme Uttr \
+            -configuration Debug \
+            -destination "platform=macOS,arch=arm64" \
+            -resultBundlePath build/TestResults.xcresult \
+            CODE_SIGN_IDENTITY="-" \
+            CODE_SIGNING_REQUIRED=NO
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: build/TestResults.xcresult
+          retention-days: 14
+
+      - name: Scan for secrets
+        run: |
+          echo "==> Scanning tracked files for likely secrets..."
+          PATTERNS='(PRIVATE.KEY|api[_-]?key|secret[_-]?key|password|token)\s*[:=]\s*["\x27][A-Za-z0-9+/=_-]{20,}'
+          if git ls-files | xargs grep -lEi "$PATTERNS" 2>/dev/null | grep -v -E '(\.md|\.yml|\.yaml|\.sh|\.gitignore)$'; then
+            echo "::error::Potential secrets found in tracked files"
+            exit 1
+          fi
+          echo "No secrets detected."
