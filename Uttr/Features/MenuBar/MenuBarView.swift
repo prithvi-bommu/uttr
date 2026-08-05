@@ -9,7 +9,7 @@ struct MenuBarView: View {
             .disabled(true)
 
         Text(hotkeyLabel)
-            .disabled(true)
+            .disabled(!appState.dictationState.isIdle)
 
         Divider()
 
@@ -18,9 +18,11 @@ struct MenuBarView: View {
         }
 
         Button("Check permissions…") {
+            SettingsLink.showSettings()
         }
 
         Button("View privacy details…") {
+            SettingsLink.showSettings()
         }
 
         Divider()
@@ -45,5 +47,13 @@ struct MenuBarView: View {
             modifiers: Set(hotkey.modifiers)
         )
         return "Dictate with \(h.displayString)"
+    }
+}
+
+private extension SettingsLink where Label == Text {
+    @MainActor
+    static func showSettings() {
+        NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
+        NSApplication.shared.activate()
     }
 }
