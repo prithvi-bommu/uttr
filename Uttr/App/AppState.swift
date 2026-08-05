@@ -84,6 +84,12 @@ final class AppState {
         case (.transcribing, .transcriptionFailed):
             return .idle
 
+        case (.transcribing, .noUsableAudio):
+            // Audio validation happens after hotkey release (state already
+            // .transcribing). A short/silent capture must return to idle,
+            // otherwise the app is stuck and ignores all further hotkeys.
+            return .idle
+
         case (.polishing, .polishCompleted(let text)):
             lastTranscript = text
             return .pasting

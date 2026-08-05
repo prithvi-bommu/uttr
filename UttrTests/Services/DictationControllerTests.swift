@@ -77,6 +77,7 @@ struct DictationControllerTests {
         h.controller.recordingEnded()
 
         await waitUntil { h.appState.dictationState == .idle }
+        #expect(h.appState.dictationState == .idle) // regression: was stuck in .transcribing
         #expect(h.pasteService.pastedTexts.isEmpty)
         #expect(h.factory.whisperEngine.transcribeCount == 0)
     }
@@ -95,6 +96,7 @@ struct DictationControllerTests {
         h.controller.recordingEnded()
 
         await waitUntil { h.appState.dictationState == .idle }
+        #expect(h.appState.dictationState == .idle) // regression: was stuck in .transcribing
         #expect(h.pasteService.pastedTexts.isEmpty)
         #expect(h.factory.whisperEngine.transcribeCount == 0)
     }
@@ -125,6 +127,7 @@ struct DictationControllerTests {
         h.controller.recordingEnded()
 
         await waitUntil { h.appState.dictationState == .idle }
+        #expect(h.appState.dictationState == .idle)
         #expect(h.pasteService.pastedTexts.isEmpty)
     }
 
@@ -140,6 +143,7 @@ struct DictationControllerTests {
         h.controller.recordingEnded()
 
         await waitUntil { h.appState.dictationState == .idle }
+        #expect(h.appState.dictationState == .idle)
         #expect(h.pasteService.pastedTexts.isEmpty)
     }
 
