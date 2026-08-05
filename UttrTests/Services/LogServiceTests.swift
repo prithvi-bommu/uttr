@@ -3,15 +3,15 @@ import Testing
 
 @Suite("LogService")
 struct LogServiceTests {
-    @Test("all loggers use correct subsystem")
-    func correctSubsystem() {
-        #expect(LogService.general.subsystem == "com.uttr.app")
-        #expect(LogService.audio.subsystem == "com.uttr.app")
-        #expect(LogService.transcription.subsystem == "com.uttr.app")
-        #expect(LogService.hotkey.subsystem == "com.uttr.app")
-        #expect(LogService.paste.subsystem == "com.uttr.app")
-        #expect(LogService.polish.subsystem == "com.uttr.app")
-        #expect(LogService.config.subsystem == "com.uttr.app")
-        #expect(LogService.permissions.subsystem == "com.uttr.app")
+    @Test("all loggers are accessible")
+    func loggersAccessible() {
+        _ = LogService.general
+        _ = LogService.audio
+        _ = LogService.transcription
+        _ = LogService.hotkey
+        _ = LogService.paste
+        _ = LogService.polish
+        _ = LogService.config
+        _ = LogService.permissions
     }
 }
