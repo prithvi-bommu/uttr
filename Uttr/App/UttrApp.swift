@@ -8,7 +8,13 @@ struct UttrApp: App {
 
     var body: some Scene {
         MenuBarExtra {
-            MenuBarView(appState: env.appState, configStore: env.configStore)
+            MenuBarView(
+                appState: env.appState,
+                configStore: env.configStore,
+                coordinator: env.transcriptionCoordinator,
+                metrics: env.dictationMetrics,
+                permissionService: env.permissionService
+            )
                 .onAppear {
                     if !env.configStore.settings.hasCompletedOnboarding {
                     }
@@ -29,6 +35,13 @@ struct UttrApp: App {
                 onTranscriptionChanged: { env.configureTranscription() }
             )
         }
+
+        #if DEBUG
+        Window("Uttr Diagnostics", id: "diagnostics") {
+            DiagnosticsView(metrics: env.dictationMetrics)
+        }
+        .windowResizability(.contentSize)
+        #endif
 
         Window("Welcome to Uttr", id: "onboarding") {
             OnboardingView(permissionService: env.permissionService) {
