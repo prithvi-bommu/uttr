@@ -138,9 +138,12 @@ struct OnboardingView: View {
                 permissionService.requestInputMonitoring()
                 refreshStatuses()
             },
-            action: { permissionService.openInputMonitoringSettings() },
-            actionLabel: "Open System Settings",
-            note: "macOS may offer to quit and reopen Uttr — accept it. This is the last permission, so setup is complete after the restart.",
+            action: {
+                permissionService.openInputMonitoringSettings()
+                permissionService.revealAppForManualAdd()
+            },
+            actionLabel: "Open Settings + Show App",
+            note: "If Uttr isn't listed in the pane, drag the Uttr icon from the Finder window into the list (or click + and pick it). macOS may offer to quit and reopen Uttr — accept it; this is the last step of setup.",
             repairLabel: "No prompt and Uttr isn't listed? Repair & re-request",
             repairAction: {
                 permissionService.repairInputMonitoring()

@@ -30,6 +30,11 @@ protocol PermissionChecking: Sendable {
     /// to re-prompt while a stale decision exists. Never called when the
     /// permission is already granted.
     func repairInputMonitoring()
+    /// Reveals Uttr.app in Finder so the user can drag it straight into an
+    /// open privacy pane. macOS 15 does not auto-register ad-hoc-signed apps
+    /// in the Input Monitoring pane (ADR-009), so pre-M7 builds need this
+    /// assisted manual add.
+    func revealAppForManualAdd()
     func openInputMonitoringSettings()
     func openAccessibilitySettings()
     func openMicrophoneSettings()
@@ -91,6 +96,10 @@ struct RealPermissionService: PermissionChecking {
         // With the stale record gone, the request shows the system prompt
         // again and auto-registers the row in the Input Monitoring pane.
         _ = CGRequestListenEventAccess()
+    }
+
+    func revealAppForManualAdd() {
+        NSWorkspace.shared.activateFileViewerSelecting([Bundle.main.bundleURL])
     }
 
     func openInputMonitoringSettings() {

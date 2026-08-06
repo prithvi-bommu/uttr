@@ -139,3 +139,20 @@ Format defined in `UTTR_MASTER_AGENT_OPERATING_PROMPT.md`.
   - `flagsChanged` Fn events are passed through (not swallowed): with the Globe action set to "Do Nothing" there is no side effect; swallowing modifier-state events could corrupt other apps' modifier tracking.
   - The M2-era claim that rebinding worked is retracted; regression tests now cover the processor directly.
 - Validation required: owner physically validates (a) rebinding to a modifier+key combo, (b) capturing bare Fn, (c) Fn hold-to-talk end-to-end after setting Globe to "Do Nothing", (d) Escape cancel and rejection paths leave the keyboard functional.
+
+---
+
+## ADR-009: macOS 15 does not auto-register ad-hoc-signed apps in the Input Monitoring pane — assisted manual add until M7
+
+- Date: 2026-08-05
+- Status: Accepted
+- Context: The DMG onboarding flow requests all three permissions programmatically. Owner validation on macOS 15.7.4 with the ad-hoc-signed DMG install showed asymmetric behavior on the same build and flow.
+- Evidence (owner-verified):
+  - Microphone: `AVCaptureDevice.requestAccess` → system prompt appears, works.
+  - Accessibility: `AXIsProcessTrustedWithOptions(prompt)` → Uttr row auto-appears in the pane; user toggles it on.
+  - Input Monitoring: `CGRequestListenEventAccess()` (including after `tccutil reset ListenEvent com.uttr.app`) → no prompt, no row; the pane opens empty of Uttr and the user must add the app manually.
+- Analysis: TCC on macOS 15 declines to create Input Monitoring (ListenEvent) client records for ad-hoc-signed binaries via the request API, while the Accessibility path still registers them. Manual adds (drag-and-drop or "+") work and persist per binary fingerprint.
+- Options considered: (1) accept "+"-and-browse; (2) assisted manual add — open the pane AND reveal Uttr.app in Finder so the user drags the icon into the list, with instructions in the onboarding note; (3) Developer ID signing now.
+- Decision: Option 2 for all pre-M7 builds (`revealAppForManualAdd()`, wired into onboarding and Permissions settings). Option 3 (Developer ID + notarization, M7) is the root-cause fix that makes registration automatic.
+- Consequences: The Input Monitoring onboarding step documents the drag-in path; the repair flow (ADR-context in `repairInputMonitoring()`) remains for genuinely stale-record cases but cannot force registration for ad-hoc builds.
+- Validation required: after M7 signing, re-verify that `CGRequestListenEventAccess()` prompts and auto-registers, then simplify the step.

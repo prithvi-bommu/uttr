@@ -31,7 +31,10 @@ struct PermissionsSettingsView: View {
                         permissionService.requestInputMonitoring()
                         refreshStatus()
                     },
-                    action: { permissionService.openInputMonitoringSettings() }
+                    action: {
+                        permissionService.openInputMonitoringSettings()
+                        permissionService.revealAppForManualAdd()
+                    }
                 )
 
                 permissionRow(
