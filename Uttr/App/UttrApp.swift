@@ -18,7 +18,7 @@ struct UttrApp: App {
         } label: {
             // The label renders in the status bar at launch, so this is the
             // reliable first-run hook (menu content only appears on click).
-            MenuBarLabel(appState: env.appState, configStore: env.configStore)
+            MenuBarLabel(appState: env.appState, configStore: env.configStore, permissionService: env.permissionService)
         }
 
         Settings {
