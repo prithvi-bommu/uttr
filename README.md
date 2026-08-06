@@ -2,6 +2,13 @@
 
 A menu-bar-only, hold-to-talk, local-first dictation app for macOS.
 
+## Install from DMG
+
+1. Build the DMG: `./Scripts/release-dmg.sh` → `build/Uttr-<version>.dmg` (SHA-256 checksum written alongside).
+2. Open the DMG and drag **Uttr** to **Applications**.
+3. First launch (pre-notarized builds): macOS Gatekeeper will warn that the app can't be verified. Right-click **Uttr.app** → **Open** → **Open**, or run `xattr -d com.apple.quarantine /Applications/Uttr.app`. This goes away once releases are Developer-ID signed and notarized (planned for v1.0).
+4. On first launch, Uttr's setup walks you through the three required permissions (Microphone, Input Monitoring, Accessibility). Input Monitoring and Accessibility take effect only after you quit and reopen Uttr — the setup says so at the right steps.
+
 ## Requirements
 
 - Apple Silicon Mac (arm64)

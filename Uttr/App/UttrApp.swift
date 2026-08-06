@@ -15,13 +15,10 @@ struct UttrApp: App {
                 metrics: env.dictationMetrics,
                 permissionService: env.permissionService
             )
-                .onAppear {
-                    if !env.configStore.settings.hasCompletedOnboarding {
-                    }
-                }
         } label: {
-            Image(systemName: env.appState.dictationState.menuBarIcon)
-                .accessibilityLabel("Uttr")
+            // The label renders in the status bar at launch, so this is the
+            // reliable first-run hook (menu content only appears on click).
+            MenuBarLabel(appState: env.appState, configStore: env.configStore)
         }
 
         Settings {
