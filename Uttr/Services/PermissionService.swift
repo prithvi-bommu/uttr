@@ -40,12 +40,10 @@ struct RealPermissionService: PermissionChecking {
     }
 
     func inputMonitoringStatus() -> PermissionStatus {
-        let canTap = CGEvent(
-            keyboardEventSource: nil,
-            virtualKey: 0,
-            keyDown: true
-        ) != nil
-        return canTap ? .granted : .notGranted
+        // CGPreflightListenEventAccess is the authoritative check. The old
+        // CGEvent-creation probe never required Input Monitoring and always
+        // reported granted, masking real tap failures.
+        CGPreflightListenEventAccess() ? .granted : .notGranted
     }
 
     func accessibilityStatus() -> PermissionStatus {
