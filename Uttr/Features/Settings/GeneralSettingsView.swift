@@ -46,7 +46,7 @@ struct GeneralSettingsView: View {
                         .disabled(!appState.canChangeSettings)
                     }
                 }
-                Text("The Fn/Globe key is not supported as a shortcut modifier due to macOS system-level restrictions.")
+                Text("You can also use the 🌐/Fn key alone: first set System Settings → Keyboard → “Press 🌐 key to” to “Do Nothing”, then click Change Shortcut and press and release the 🌐/Fn key. Fn cannot be combined with other keys.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }

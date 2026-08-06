@@ -37,7 +37,7 @@ The first-run setup guides you through granting each permission.
 
 **Control + Option + Space** — hold to record, release to transcribe and paste.
 
-You can change this in Settings. The Fn/Globe key is not supported as a shortcut modifier due to macOS system-level restrictions.
+You can change this in Settings. The 🌐/Fn key is supported **on its own** as a hold-to-talk key: set System Settings → Keyboard → “Press 🌐 key to” to “Do Nothing” first, then capture it via Settings → Change Shortcut. Fn cannot be combined with other keys, and bare modifier-only shortcuts (e.g. just Control+Shift) remain unsupported.
 
 ## Offline behavior
 

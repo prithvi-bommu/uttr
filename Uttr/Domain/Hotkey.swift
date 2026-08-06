@@ -9,7 +9,19 @@ struct Hotkey: Equatable, Sendable {
         modifiers: [.control, .option]
     )
 
+    /// Virtual key code of the Fn/Globe key (surfaces via flagsChanged).
+    static let fnGlobeKeyCode: UInt16 = 63
+
+    /// Bare Fn/Globe hold-to-talk hotkey (ADR-008). Fn is only supported
+    /// alone — never combined with other keys or as a modifier.
+    var isFnGlobe: Bool {
+        keyCode == Self.fnGlobeKeyCode && modifiers.isEmpty
+    }
+
     var displayString: String {
+        if isFnGlobe {
+            return "🌐 Globe (Fn)"
+        }
         var parts: [String] = []
         if modifiers.contains(.control) { parts.append("Control") }
         if modifiers.contains(.option) { parts.append("Option") }
@@ -25,6 +37,7 @@ struct Hotkey: Equatable, Sendable {
         case 36: "Return"
         case 48: "Tab"
         case 51: "Delete"
+        case 63: "🌐/Fn"
         case 76: "Enter"
         default: "Key(\(keyCode))"
         }
