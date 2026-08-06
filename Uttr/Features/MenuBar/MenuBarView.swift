@@ -35,7 +35,7 @@ struct MenuBarView: View {
 
     private var statusText: String {
         if let failedText = appState.pasteFailedText, !failedText.isEmpty {
-            return "Paste failed — text copied"
+            return "Text copied — paste with Command-V."
         }
         return appState.dictationState.statusText
     }

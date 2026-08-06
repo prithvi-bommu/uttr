@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- M4: Real cross-application paste — `PasteService` implements the exact spec sequence: snapshot plain-text clipboard → write transcript to `NSPasteboard.general` → 50 ms propagation wait → synthetic Command-V via CoreGraphics (`CGEvent`, key code 9, Command flag) → 400 ms wait → race-safe restore
+- M4: `ClipboardRestoreService` — plain-text-only clipboard snapshot/restore; restores the prior clipboard if and only if the pasteboard change count still equals the value from Uttr's own write; never restores non-text content and never overwrites another app's newer clipboard
+- M4: `Pasteboarding` and `KeyboardPosting` seams with `MockPasteboard`/`MockKeyboardPoster` test doubles — unit tests never touch the real clipboard or post real keyboard events
+- M4: Paste failure UX — if Command-V posting fails, the transcript stays on the clipboard and the menu bar shows `Text copied — paste with Command-V.`
+- M4: Programmatic permission requests — `Request Access` buttons in Onboarding and Permissions settings now trigger the system prompts for Microphone (`AVCaptureDevice.requestAccess`), Input Monitoring (`CGRequestListenEventAccess`), and Accessibility (`AXIsProcessTrustedWithOptions` with prompt), replacing manual-only System Settings navigation
+- M4: Permission statuses re-check automatically when Uttr regains focus (returning from System Settings)
+- M4: Clipboard behavior disclosure (non-text restoration limitation) added to Privacy settings
+- M4: 12 new unit tests: clipboard snapshot/restore, change-count race, non-text clipboard limitation, paste-post failure, write-before-post ordering, and exact wait durations
+
 - DictationState state machine with validated transitions and event-driven AppState
 - ConfigurationStore with atomic JSON persistence, 0600/0700 file permissions, validation, and malformed-file recovery
 - Settings window with five tabs: General, Transcription, Text Polish, Permissions, Privacy

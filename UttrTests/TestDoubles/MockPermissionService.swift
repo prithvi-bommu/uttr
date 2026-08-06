@@ -6,9 +6,13 @@ final class MockPermissionService: PermissionChecking, @unchecked Sendable {
     var inputStatus: PermissionStatus = .granted
     var accessStatus: PermissionStatus = .granted
     var requestMicResult: PermissionStatus = .granted
+    var requestInputResult = false
+    var requestAccessResult = false
     var openMicCalled = false
     var openInputCalled = false
     var openAccessCalled = false
+    var requestInputCalled = false
+    var requestAccessCalled = false
 
     func microphoneStatus() -> PermissionStatus { micStatus }
     func inputMonitoringStatus() -> PermissionStatus { inputStatus }
@@ -16,6 +20,18 @@ final class MockPermissionService: PermissionChecking, @unchecked Sendable {
 
     func requestMicrophone() async -> PermissionStatus {
         requestMicResult
+    }
+
+    @discardableResult
+    func requestInputMonitoring() -> Bool {
+        requestInputCalled = true
+        return requestInputResult
+    }
+
+    @discardableResult
+    func requestAccessibility() -> Bool {
+        requestAccessCalled = true
+        return requestAccessResult
     }
 
     func openInputMonitoringSettings() { openInputCalled = true }
