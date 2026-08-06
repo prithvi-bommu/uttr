@@ -64,12 +64,43 @@ After pasting, Uttr restores your previous plain-text clipboard content if no ot
 
 ## Build from source
 
+Prerequisites: Apple Silicon Mac, macOS 15+, and full Xcode **16.3 or newer**
+(the project format requires it). Activate Xcode once:
+
 ```bash
-git clone https://github.com/prithvibommu/uttr.git
+sudo xcode-select --switch /Applications/Xcode.app/Contents/Developer
+sudo xcodebuild -license accept
+```
+
+Clone and build:
+
+```bash
+git clone https://github.com/prithvi-bommu/uttr.git
 cd uttr
 ./Scripts/bootstrap.sh
 xcodebuild -project Uttr.xcodeproj -scheme Uttr -configuration Debug build
 ```
+
+Run the tests:
+
+```bash
+./Scripts/test.sh
+```
+
+## Create a distributable DMG
+
+```bash
+./Scripts/release-dmg.sh
+```
+
+One command: builds Release (arm64), ad-hoc signs the app, packages
+`build/Uttr-<version>.dmg` with a SHA-256 checksum, and opens the DMG window
+for the drag-to-Applications install. The first build downloads Swift package
+dependencies, so it needs internet access.
+
+Note: until releases are Developer-ID signed and notarized, the DMG is ad-hoc
+signed — recipients right-click → Open once (see "Install from DMG" above),
+and Input Monitoring requires the drag-in add during setup.
 
 ## License
 
