@@ -19,7 +19,7 @@ final class AppEnvironment {
             appState: appState,
             recorder: AVAudioEngineRecorder(),
             coordinator: transcriptionCoordinator,
-            pasteService: PlaceholderPasteService()
+            pasteService: PasteService()
         )
         configureTranscription()
         startHotkeyService()
