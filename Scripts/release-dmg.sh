@@ -31,8 +31,12 @@ codesign --verify --deep --strict "$APP_PATH"
 echo "==> Packaging DMG..."
 ./Scripts/make-dmg.sh "$APP_PATH" "$VERSION"
 
+DMG_PATH="build/Uttr-${VERSION}.dmg"
+echo "==> Opening ${DMG_PATH} in Finder..."
+open "$DMG_PATH"
+
 echo ""
-echo "Done. Distribute build/Uttr-${VERSION}.dmg"
+echo "Done. The DMG window is open — drag Uttr onto the Applications folder."
 echo "Recipients: drag Uttr to Applications, then right-click -> Open the"
 echo "first time (unsigned build). Onboarding will request permissions on"
 echo "first launch."
