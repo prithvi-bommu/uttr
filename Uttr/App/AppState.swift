@@ -19,6 +19,30 @@ enum DictationEvent: Sendable {
     case cancelHotkeyCapture
     case hotkeyCaptureDone
     case maxDurationReached
+
+    /// Case name only — never includes associated values, so transcript
+    /// contents can never reach a log line (privacy contract §11).
+    var debugName: String {
+        switch self {
+        case .hotkeyDown: "hotkeyDown"
+        case .hotkeyUp: "hotkeyUp"
+        case .escapePressed: "escapePressed"
+        case .recordingFailed: "recordingFailed"
+        case .noUsableAudio: "noUsableAudio"
+        case .transcriptionCompleted: "transcriptionCompleted"
+        case .transcriptionFailed: "transcriptionFailed"
+        case .polishCompleted: "polishCompleted"
+        case .polishFailed: "polishFailed"
+        case .pasteCompleted: "pasteCompleted"
+        case .pasteFailed: "pasteFailed"
+        case .permissionBlocked(let blocker): "permissionBlocked(\(blocker))"
+        case .permissionResolved: "permissionResolved"
+        case .beginHotkeyCapture: "beginHotkeyCapture"
+        case .cancelHotkeyCapture: "cancelHotkeyCapture"
+        case .hotkeyCaptureDone: "hotkeyCaptureDone"
+        case .maxDurationReached: "maxDurationReached"
+        }
+    }
 }
 
 @MainActor
@@ -44,6 +68,7 @@ final class AppState {
         }
         dictationState = next
         logger.info("Transition: \(String(describing: from)) -> \(String(describing: next))")
+        DebugFileLog.append("state", "Transition: \(String(describing: from)) -> \(String(describing: next)) (event: \(event.debugName))")
         return true
     }
 

@@ -109,6 +109,7 @@ final class EventTapHotkeyService: @unchecked Sendable, HotkeyServiceProtocol {
             userInfo: refcon
         ) else {
             logger.error("Failed to create event tap — Input Monitoring permission likely missing")
+            DebugFileLog.append("hotkey", "FAILED to create event tap — Input Monitoring permission likely missing")
             return
         }
 
@@ -124,6 +125,7 @@ final class EventTapHotkeyService: @unchecked Sendable, HotkeyServiceProtocol {
         CGEvent.tapEnable(tap: tap, enable: true)
 
         logger.info("Event tap installed")
+        DebugFileLog.append("hotkey", "Event tap installed")
         CFRunLoopRun()
     }
 
