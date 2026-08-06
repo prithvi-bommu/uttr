@@ -140,7 +140,12 @@ struct OnboardingView: View {
             },
             action: { permissionService.openInputMonitoringSettings() },
             actionLabel: "Open System Settings",
-            note: "macOS may offer to quit and reopen Uttr — accept it. This is the last permission, so setup is complete after the restart."
+            note: "macOS may offer to quit and reopen Uttr — accept it. This is the last permission, so setup is complete after the restart.",
+            repairLabel: "No prompt and Uttr isn't listed? Repair & re-request",
+            repairAction: {
+                permissionService.repairInputMonitoring()
+                refreshStatuses()
+            }
         )
     }
 
@@ -198,7 +203,9 @@ struct OnboardingView: View {
         requestAction: @escaping () -> Void,
         action: @escaping () -> Void,
         actionLabel: String,
-        note: String? = nil
+        note: String? = nil,
+        repairLabel: String? = nil,
+        repairAction: (() -> Void)? = nil
     ) -> some View {
         VStack(spacing: 16) {
             Image(systemName: icon)
@@ -234,6 +241,14 @@ struct OnboardingView: View {
                 Text(note)
                     .font(.caption)
                     .foregroundStyle(.orange)
+            }
+
+            if status != .granted, let repairLabel, let repairAction {
+                Button(repairLabel) {
+                    repairAction()
+                }
+                .buttonStyle(.link)
+                .font(.caption)
             }
         }
     }

@@ -24,6 +24,12 @@ protocol PermissionChecking: Sendable {
     ///   prompt was shown (grant requires a relaunch to take effect).
     @discardableResult
     func requestAccessibility() -> Bool
+    /// Clears Uttr's own stale Input Monitoring record and re-requests.
+    /// Fixes the "pane opens but Uttr isn't listed" dead end that stale
+    /// records from earlier (differently-signed) builds cause: macOS refuses
+    /// to re-prompt while a stale decision exists. Never called when the
+    /// permission is already granted.
+    func repairInputMonitoring()
     func openInputMonitoringSettings()
     func openAccessibilitySettings()
     func openMicrophoneSettings()
@@ -71,6 +77,20 @@ struct RealPermissionService: PermissionChecking {
         // AXUIElement.h); the SDK global var is not concurrency-safe under Swift 6.
         let options = ["AXTrustedCheckOptionPrompt": true] as CFDictionary
         return AXIsProcessTrustedWithOptions(options)
+    }
+
+    func repairInputMonitoring() {
+        // Guard: never touch a working grant.
+        guard inputMonitoringStatus() != .granted else { return }
+        // tccutil resets only Uttr's own records (bundle-id scoped, no sudo).
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/tccutil")
+        process.arguments = ["reset", "ListenEvent", "com.uttr.app"]
+        try? process.run()
+        process.waitUntilExit()
+        // With the stale record gone, the request shows the system prompt
+        // again and auto-registers the row in the Input Monitoring pane.
+        _ = CGRequestListenEventAccess()
     }
 
     func openInputMonitoringSettings() {
