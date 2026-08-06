@@ -153,14 +153,64 @@ final class MockPasteService: PasteServicing, @unchecked Sendable {
     }
 }
 
+/// In-memory pasteboard double for PasteService/ClipboardRestoreService tests
+/// (spec §12: never touch the real clipboard). `simulateExternalWrite`
+/// mimics another app changing the clipboard mid-sequence.
+@MainActor
+final class MockPasteboard: Pasteboarding {
+    private(set) var changeCount = 0
+    /// nil models an empty or non-text pasteboard.
+    private(set) var text: String?
+    private(set) var setStringCalls: [String] = []
+
+    init(initialText: String? = nil) {
+        text = initialText
+    }
+
+    func string() -> String? { text }
+
+    @discardableResult
+    func setString(_ newText: String) -> Int {
+        setStringCalls.append(newText)
+        text = newText
+        changeCount += 1
+        return changeCount
+    }
+
+    /// Another app writes to the clipboard (bumps changeCount past ours).
+    func simulateExternalWrite(_ newText: String?) {
+        text = newText
+        changeCount += 1
+    }
+}
+
+/// Keyboard poster double: scriptable success plus an `onPost` hook so tests
+/// can assert pasteboard state at the moment Cmd-V is posted (ordering).
+@MainActor
+final class MockKeyboardPoster: KeyboardPosting {
+    var succeed = true
+    var onPost: (() -> Void)?
+    private(set) var postCount = 0
+
+    func postCommandV() -> Bool {
+        postCount += 1
+        onPost?()
+        return succeed
+    }
+}
+
 /// Clock double: `sleep` suspends until the test explicitly fires or cancels it.
 final class MockDictationClock: DictationClock, @unchecked Sendable {
     private let lock = NSLock()
     private var continuations: [CheckedContinuation<Void, Error>] = []
     private(set) var sleepCount = 0
+    private(set) var requestedDurations: [TimeInterval] = []
 
     func sleep(for duration: TimeInterval) async throws {
-        lock.withLock { sleepCount += 1 }
+        lock.withLock {
+            sleepCount += 1
+            requestedDurations.append(duration)
+        }
         try await withCheckedThrowingContinuation { continuation in
             lock.withLock { continuations.append(continuation) }
         }

@@ -1,8 +1,12 @@
+import Combine
 import SwiftUI
 
 struct OnboardingView: View {
     @State private var step: OnboardingStep = .welcome
     @State private var showSkipConfirmation = false
+    @State private var micStatus: PermissionStatus = .unknown
+    @State private var inputStatus: PermissionStatus = .unknown
+    @State private var accessibilityStatus: PermissionStatus = .unknown
     let permissionService: PermissionChecking
     let onComplete: () -> Void
 
@@ -43,6 +47,20 @@ struct OnboardingView: View {
             .padding()
         }
         .frame(width: 500, height: 400)
+        .onAppear {
+            refreshStatuses()
+        }
+        .onChange(of: step) {
+            refreshStatuses()
+        }
+        .onReceive(
+            NotificationCenter.default.publisher(
+                for: NSApplication.didBecomeActiveNotification
+            )
+        ) { _ in
+            // Re-check after the user returns from System Settings (spec §9).
+            refreshStatuses()
+        }
         .alert("Skip Setup?", isPresented: $showSkipConfirmation) {
             Button("Skip") {
                 onComplete()
@@ -51,6 +69,12 @@ struct OnboardingView: View {
         } message: {
             Text("Uttr cannot dictate until the required permissions are granted.")
         }
+    }
+
+    private func refreshStatuses() {
+        micStatus = permissionService.microphoneStatus()
+        inputStatus = permissionService.inputMonitoringStatus()
+        accessibilityStatus = permissionService.accessibilityStatus()
     }
 
     @ViewBuilder
@@ -90,7 +114,13 @@ struct OnboardingView: View {
             icon: "mic.fill",
             title: "Microphone Access",
             description: "Uttr needs microphone access to capture your voice while you hold the dictation shortcut. Audio is processed entirely on your Mac and never leaves your device.",
-            status: permissionService.microphoneStatus(),
+            status: micStatus,
+            requestLabel: "Allow Microphone Access",
+            requestAction: {
+                Task { @MainActor in
+                    micStatus = await permissionService.requestMicrophone()
+                }
+            },
             action: { permissionService.openMicrophoneSettings() },
             actionLabel: "Open System Settings"
         )
@@ -101,10 +131,15 @@ struct OnboardingView: View {
             icon: "keyboard",
             title: "Input Monitoring",
             description: "Uttr needs Input Monitoring to detect your global dictation shortcut, even when other apps are focused.",
-            status: permissionService.inputMonitoringStatus(),
+            status: inputStatus,
+            requestLabel: "Request Access",
+            requestAction: {
+                permissionService.requestInputMonitoring()
+                refreshStatuses()
+            },
             action: { permissionService.openInputMonitoringSettings() },
             actionLabel: "Open System Settings",
-            note: "You may need to quit and reopen Uttr after granting this permission."
+            note: "After granting, quit and reopen Uttr for the change to take effect."
         )
     }
 
@@ -113,10 +148,15 @@ struct OnboardingView: View {
             icon: "universal.access",
             title: "Accessibility",
             description: "Uttr needs Accessibility access to paste transcribed text into other applications using a simulated keyboard shortcut.",
-            status: permissionService.accessibilityStatus(),
+            status: accessibilityStatus,
+            requestLabel: "Request Access",
+            requestAction: {
+                permissionService.requestAccessibility()
+                refreshStatuses()
+            },
             action: { permissionService.openAccessibilitySettings() },
             actionLabel: "Open System Settings",
-            note: "You may need to quit and reopen Uttr after granting this permission."
+            note: "After granting, quit and reopen Uttr for the change to take effect."
         )
     }
 
@@ -153,6 +193,8 @@ struct OnboardingView: View {
         title: String,
         description: String,
         status: PermissionStatus,
+        requestLabel: String,
+        requestAction: @escaping () -> Void,
         action: @escaping () -> Void,
         actionLabel: String,
         note: String? = nil
@@ -173,6 +215,12 @@ struct OnboardingView: View {
             HStack {
                 statusLabel(status)
                 Spacer()
+                if status != .granted {
+                    Button(requestLabel) {
+                        requestAction()
+                    }
+                    .buttonStyle(.borderedProminent)
+                }
                 Button(actionLabel) {
                     action()
                 }

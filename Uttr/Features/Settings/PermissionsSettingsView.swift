@@ -1,3 +1,4 @@
+import Combine
 import SwiftUI
 
 struct PermissionsSettingsView: View {
@@ -14,6 +15,11 @@ struct PermissionsSettingsView: View {
                     title: "Microphone",
                     description: "Required to capture your voice during dictation.",
                     status: micStatus,
+                    requestAction: {
+                        Task { @MainActor in
+                            micStatus = await permissionService.requestMicrophone()
+                        }
+                    },
                     action: { permissionService.openMicrophoneSettings() }
                 )
 
@@ -21,6 +27,10 @@ struct PermissionsSettingsView: View {
                     title: "Input Monitoring",
                     description: "Required to detect your global dictation shortcut.",
                     status: inputStatus,
+                    requestAction: {
+                        permissionService.requestInputMonitoring()
+                        refreshStatus()
+                    },
                     action: { permissionService.openInputMonitoringSettings() }
                 )
 
@@ -28,6 +38,10 @@ struct PermissionsSettingsView: View {
                     title: "Accessibility",
                     description: "Required to paste transcribed text into other applications.",
                     status: accessibilityStatus,
+                    requestAction: {
+                        permissionService.requestAccessibility()
+                        refreshStatus()
+                    },
                     action: { permissionService.openAccessibilitySettings() }
                 )
             }
@@ -43,6 +57,14 @@ struct PermissionsSettingsView: View {
         .onAppear {
             refreshStatus()
         }
+        .onReceive(
+            NotificationCenter.default.publisher(
+                for: NSApplication.didBecomeActiveNotification
+            )
+        ) { _ in
+            // Re-check after the user returns from System Settings (spec §9).
+            refreshStatus()
+        }
     }
 
     @ViewBuilder
@@ -50,6 +72,7 @@ struct PermissionsSettingsView: View {
         title: String,
         description: String,
         status: PermissionStatus,
+        requestAction: @escaping () -> Void,
         action: @escaping () -> Void
     ) -> some View {
         HStack {
@@ -64,6 +87,11 @@ struct PermissionsSettingsView: View {
                     .foregroundStyle(.secondary)
             }
             Spacer()
+            if status != .granted {
+                Button("Request Access") {
+                    requestAction()
+                }
+            }
             Button("Open System Settings") {
                 action()
             }
