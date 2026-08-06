@@ -8,6 +8,7 @@ struct OnboardingView: View {
     @State private var inputStatus: PermissionStatus = .unknown
     @State private var accessibilityStatus: PermissionStatus = .unknown
     let permissionService: PermissionChecking
+    var hotkeyDisplay: String = "Control + Option + Space"
     let onComplete: () -> Void
 
     var body: some View {
@@ -139,7 +140,7 @@ struct OnboardingView: View {
             },
             action: { permissionService.openInputMonitoringSettings() },
             actionLabel: "Open System Settings",
-            note: "After granting, quit and reopen Uttr for the change to take effect."
+            note: "macOS may offer to quit and reopen Uttr — accept it. This is the last permission, so setup is complete after the restart."
         )
     }
 
@@ -170,10 +171,10 @@ struct OnboardingView: View {
                 .font(.title)
                 .fontWeight(.bold)
 
-            Text("Your default dictation shortcut is:")
+            Text("Your dictation shortcut is:")
                 .foregroundStyle(.secondary)
 
-            Text("Control + Option + Space")
+            Text(hotkeyDisplay)
                 .font(.title3)
                 .fontWeight(.medium)
                 .padding(.horizontal, 16)
@@ -254,10 +255,14 @@ struct OnboardingView: View {
 }
 
 enum OnboardingStep: Int, CaseIterable {
+    // Input Monitoring is deliberately LAST: its system prompt offers
+    // "Quit & Reopen", which restarts the app. Placing it after Microphone
+    // and Accessibility means that restart happens once everything else is
+    // granted — so the event tap comes up successfully on the relaunch.
     case welcome
     case microphone
-    case inputMonitoring
     case accessibility
+    case inputMonitoring
     case done
 
     var next: OnboardingStep {
