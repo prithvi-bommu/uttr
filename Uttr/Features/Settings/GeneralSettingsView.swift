@@ -1,3 +1,4 @@
+import Combine
 import SwiftUI
 
 struct GeneralSettingsView: View {
@@ -5,6 +6,9 @@ struct GeneralSettingsView: View {
     let appState: AppState
     let onBeginCapture: () -> Void
     let onCancelCapture: () -> Void
+    var fnUsage: FnUsageChecking = RealFnUsageService()
+
+    @State private var fnGlobeAction: FnGlobeAction = .unknown
 
     var body: some View {
         Form {
@@ -46,6 +50,24 @@ struct GeneralSettingsView: View {
                         .disabled(!appState.canChangeSettings)
                     }
                 }
+
+                if showFnConflictWarning {
+                    HStack(alignment: .top, spacing: 8) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .foregroundStyle(.orange)
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("Your 🌐 key is currently set to “\(fnGlobeAction.displayName)”, so macOS will also trigger that on every press. For hold-to-talk with the 🌐/Fn key, set “Press 🌐 key to” to “Do Nothing” in Keyboard settings.")
+                                .font(.caption)
+                            Button("Open Keyboard Settings") {
+                                fnUsage.openKeyboardSettings()
+                            }
+                        }
+                    }
+                    .padding(8)
+                    .background(.orange.opacity(0.1))
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                }
+
                 Text("You can also use the 🌐/Fn key alone: first set System Settings → Keyboard → “Press 🌐 key to” to “Do Nothing”, then click Change Shortcut and press and release the 🌐/Fn key. Fn cannot be combined with other keys.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -53,6 +75,29 @@ struct GeneralSettingsView: View {
         }
         .formStyle(.grouped)
         .padding()
+        .onAppear {
+            refreshFnAction()
+        }
+        .onReceive(
+            NotificationCenter.default.publisher(
+                for: NSApplication.didBecomeActiveNotification
+            )
+        ) { _ in
+            // Re-check after the user returns from System Settings.
+            refreshFnAction()
+        }
+    }
+
+    /// Warn when the active hotkey is bare Fn but the system will also fire
+    /// its own Globe action on every press (ADR-008).
+    private var showFnConflictWarning: Bool {
+        let hotkey = store.settings.hotkey
+        let isFnHotkey = hotkey.keyCode == Hotkey.fnGlobeKeyCode && hotkey.modifiers.isEmpty
+        return isFnHotkey && fnGlobeAction != .doNothing
+    }
+
+    private func refreshFnAction() {
+        fnGlobeAction = fnUsage.currentAction()
     }
 
     private var currentHotkeyDisplay: String {
