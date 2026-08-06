@@ -89,6 +89,7 @@ final class PasteService: PasteServicing {
 
         guard keyboard.postCommandV() else {
             logger.error("Command-V posting failed — leaving text on clipboard for manual paste")
+            DebugFileLog.append("paste", "Command-V posting FAILED — text left on clipboard (Accessibility permission?)")
             return false
         }
 
@@ -96,6 +97,7 @@ final class PasteService: PasteServicing {
 
         let outcome = clipboard.restoreIfSafe(snapshot, expectedChangeCount: ourChangeCount)
         logger.info("Paste posted (\(text.count, privacy: .public) characters, restore: \(String(describing: outcome), privacy: .public))")
+        DebugFileLog.append("paste", "Paste posted (\(text.count) characters, restore: \(String(describing: outcome)))")
         return true
     }
 }

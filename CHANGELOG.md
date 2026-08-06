@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Shortcut rebinding: `EventTapHotkeyService` parked its serial queue's thread inside `CFRunLoopRun()`, so `beginCapture`/`updateHotkey`/`cancelCapture` (dispatched with `queue.async`) never executed — Change Shortcut could never capture or apply a new combination. Decision logic is now a pure, lock-protected `HotkeyEventProcessor` mutated synchronously (ADR-008)
+- Shortcut capture: rejected attempts (modifier-less key, reserved shortcut) now exit capture mode — previously `isCapturing` stayed set, leaving the tap swallowing all keyboard input
+- Shortcut capture: the combination is sampled at key-down instead of key-up, so releasing the modifiers before the main key no longer falsely rejects the capture
+- Reserved-shortcut table: Cmd-Shift-Space used Cmd-Option modifier bits (0x180000) instead of Cmd-Shift (0x120000)
+
+### Added
+
+- Bare 🌐/Fn (Globe) key supported as a hold-to-talk hotkey (ADR-008, owner-directed spec §0 amendment): detected via `flagsChanged`/`.maskSecondaryFn`, capturable in Change Shortcut, valid in settings with no modifiers. Requires System Settings → Keyboard → "Press 🌐 key to" set to "Do Nothing"; Fn+key combinations remain unsupported. Settings/README updated
+- 19 `HotkeyEventProcessor` unit tests: hold-to-talk matching, repeat suppression, Escape, rebinding effect, capture happy/reject/reserved/stale paths, release-order tolerance, bare-Fn capture and hold-to-talk, and ADR-008 validation rules
+
 ### Added
 
 - M4: Real cross-application paste — `PasteService` implements the exact spec sequence: snapshot plain-text clipboard → write transcript to `NSPasteboard.general` → 50 ms propagation wait → synthetic Command-V via CoreGraphics (`CGEvent`, key code 9, Command flag) → 400 ms wait → race-safe restore

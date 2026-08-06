@@ -53,6 +53,7 @@ final class DictationController {
                 try await recorder.startRecording()
             } catch {
                 logger.error("Recorder failed to start: \(error.localizedDescription, privacy: .public)")
+                DebugFileLog.append("dictation", "Recorder FAILED to start: \(error.localizedDescription)")
                 await recorder.cancelRecording()
                 appState.handle(.recordingFailed)
                 return
@@ -81,14 +82,17 @@ final class DictationController {
 
     private func finishDictation() async {
         let audio = await recorder.stopRecording()
+        DebugFileLog.append("dictation", "Captured \(String(format: "%.2f", audio.duration))s of audio")
 
         switch AudioPolicy.evaluate(audio) {
         case .tooShort:
             logger.info("Dictation rejected: too short (\(String(format: "%.2f", audio.duration), privacy: .public)s)")
+            DebugFileLog.append("dictation", "REJECTED: too short")
             appState.handle(.noUsableAudio)
             return
         case .noUsableAudio:
             logger.info("Dictation rejected: no meaningful samples")
+            DebugFileLog.append("dictation", "REJECTED: no meaningful samples (mic silent? check Microphone permission)")
             appState.handle(.noUsableAudio)
             return
         case .usable:
@@ -100,15 +104,18 @@ final class DictationController {
             transcript = try await coordinator.transcribe(audio)
         } catch {
             logger.error("Transcription failed: \(error.localizedDescription, privacy: .public)")
+            DebugFileLog.append("dictation", "Transcription FAILED: \(error.localizedDescription)")
             appState.handle(.transcriptionFailed)
             return
         }
 
         guard !transcript.isEmpty else {
             logger.info("Empty transcript — nothing to paste")
+            DebugFileLog.append("dictation", "Empty transcript — nothing to paste")
             appState.handle(.transcriptionFailed)
             return
         }
+        DebugFileLog.append("dictation", "Transcribed \(transcript.count) characters")
 
         appState.handle(.transcriptionCompleted(transcript))
 

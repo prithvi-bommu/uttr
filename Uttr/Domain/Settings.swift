@@ -43,11 +43,16 @@ struct UttrSettings: Codable, Equatable, Sendable {
         if schemaVersion != 1 {
             throw ValidationError.unsupportedSchemaVersion(schemaVersion)
         }
-        if hotkey.modifiers.isEmpty {
-            throw ValidationError.hotkeyMissingModifier
-        }
-        if hotkey.keyCode == 0 {
-            throw ValidationError.hotkeyMissingKey
+        // Bare Fn/Globe is a valid hold-to-talk hotkey with no modifiers
+        // (ADR-008). Every other key still requires at least one modifier.
+        let isBareFnHotkey = hotkey.keyCode == Hotkey.fnGlobeKeyCode && hotkey.modifiers.isEmpty
+        if !isBareFnHotkey {
+            if hotkey.modifiers.isEmpty {
+                throw ValidationError.hotkeyMissingModifier
+            }
+            if hotkey.keyCode == 0 {
+                throw ValidationError.hotkeyMissingKey
+            }
         }
         if cloudPolish.enabled && cloudPolish.provider != .none {
             let config = activeProviderConfig

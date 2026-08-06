@@ -119,3 +119,23 @@ Format defined in `UTTR_MASTER_AGENT_OPERATING_PROMPT.md`.
 - Consequences: The agent-session workaround set ADR-005 documented gains one more flag: SPM manifest compilation also cannot nest in the agent sandbox, so agent-run resolves/builds pass `-IDEPackageSupportDisableManifestSandbox=YES`. Owner builds and CI are unaffected.
 - Lesson recorded: never hand-pick short sequential pbxproj IDs; verify uniqueness or use full 24-hex random IDs.
 - Validation required: end-to-end dictation with the tiny.en model (M3 Validator Packet).
+
+---
+
+## ADR-008: Owner amends spec §0 — bare Fn/Globe becomes a supported hotkey; shortcut rebinding defect root-caused
+
+- Date: 2026-08-05
+- Status: Accepted (owner-directed 2026-08-05, post-M4 validation)
+- Context: Two owner-reported issues. (1) Changing the hotkey via Settings → Change Shortcut never works. (2) The owner wants to trigger dictation with the Fn/Globe key, which spec §0 locked out ("Fn/Globe: Unsupported. Reject it in shortcut capture… Do not attempt a special Fn hook.").
+- Evidence:
+  - Rebinding defect: `EventTapHotkeyService.installEventTap()` runs on the service's serial dispatch queue and calls `CFRunLoopRun()`, which never returns. Every later `queue.async` block — `beginCapture()`, `updateHotkey()`, `cancelCapture()`, `stop()` — waits behind it forever. The capture UI appears (AppState transitions) but the tap never enters capture mode. M2's "rebinding works" acceptance was validated only against `MockHotkeyService`; the real tap path was never physically exercised for rebinding. Two latent defects found in the same code: rejection paths never reset `isCapturing` (a rejected capture would swallow the entire keyboard once reachable), and capture sampled modifier flags at key-up, falsely rejecting when the user releases modifiers before the main key.
+  - Fn feasibility: the Fn/Globe key surfaces to a CGEventTap as `flagsChanged` events with keyCode 63 and `.maskSecondaryFn` set on press / cleared on release — a reliable hold/release boundary. Commercial dictation apps (e.g. Wispr Flow) ship exactly this, requiring the user to set System Settings → Keyboard → "Press 🌐 key to" → "Do Nothing" so the system emoji/input-switch action does not also fire. Uttr cannot change that system setting programmatically.
+- Options considered:
+  1. Keep the spec lock, fix only rebinding.
+  2. Amend spec §0: support **bare Fn/Globe** as an alternative hold-to-talk hotkey (press-and-hold Fn alone), while continuing to reject Fn as a *modifier in combination* with other keys (Fn+K etc.), which macOS handles inconsistently.
+- Decision: Option 2, directed by the owner. Spec §0's "Fn/Globe: Unsupported" row and §6's "non-Fn normal key" validation rule are amended: `hotkey.keyCode == 63` with an empty modifier set is now valid. Modifier-only shortcuts (bare Ctrl/Shift chords) remain forbidden — the false-trigger rationale stands; bare Fn is exempt because Fn participates in no typing chords. Rebinding is fixed by extracting the tap's decision logic into a pure, lock-protected `HotkeyEventProcessor` mutated synchronously (no dispatch onto the blocked run-loop queue) and unit-tested directly.
+- Consequences:
+  - Users can capture bare Fn in Change Shortcut; Settings/README must instruct setting "Press 🌐 key to: Do Nothing" and disclose that Fn+key combinations remain unsupported.
+  - `flagsChanged` Fn events are passed through (not swallowed): with the Globe action set to "Do Nothing" there is no side effect; swallowing modifier-state events could corrupt other apps' modifier tracking.
+  - The M2-era claim that rebinding worked is retracted; regression tests now cover the processor directly.
+- Validation required: owner physically validates (a) rebinding to a modifier+key combo, (b) capturing bare Fn, (c) Fn hold-to-talk end-to-end after setting Globe to "Do Nothing", (d) Escape cancel and rejection paths leave the keyboard functional.

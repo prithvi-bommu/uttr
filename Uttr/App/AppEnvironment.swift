@@ -46,6 +46,21 @@ final class AppEnvironment {
                 self?.handleHotkeyEvent(event)
             }
         }
+
+        // The tap installs asynchronously and fails silently when Input
+        // Monitoring is missing (every rebuild invalidates the grant,
+        // ADR-006). Surface it in the menu bar instead of a dead hotkey.
+        // The grant only applies after relaunch, so the blocked status is
+        // accurate for this process's entire lifetime.
+        Task { @MainActor [weak self] in
+            try? await Task.sleep(nanoseconds: 1_500_000_000)
+            guard let self else { return }
+            if self.permissionService.inputMonitoringStatus() == .notGranted {
+                self.appState.handle(.permissionBlocked(.inputMonitoring))
+                self.logger.error("Input Monitoring not granted — hotkey inactive until granted + relaunch")
+                DebugFileLog.append("app", "BLOCKED: Input Monitoring not granted — grant it and relaunch Uttr")
+            }
+        }
     }
 
     private func handleHotkeyEvent(_ event: HotkeyEvent) {
