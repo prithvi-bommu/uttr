@@ -23,7 +23,7 @@ struct PermissionsSettingsView: View {
                     action: { permissionService.openMicrophoneSettings() }
                 )
 
-                permissionRow(
+                permissionRowWithRepair(
                     title: "Input Monitoring",
                     description: "Required to detect your global dictation shortcut.",
                     status: inputStatus,
@@ -31,7 +31,10 @@ struct PermissionsSettingsView: View {
                         permissionService.requestInputMonitoring()
                         refreshStatus()
                     },
-                    action: { permissionService.openInputMonitoringSettings() }
+                    action: {
+                        permissionService.openInputMonitoringSettings()
+                        permissionService.revealAppForManualAdd()
+                    }
                 )
 
                 permissionRow(
@@ -64,6 +67,28 @@ struct PermissionsSettingsView: View {
         ) { _ in
             // Re-check after the user returns from System Settings (spec §9).
             refreshStatus()
+        }
+    }
+
+    @ViewBuilder
+    private func permissionRowWithRepair(
+        title: String,
+        description: String,
+        status: PermissionStatus,
+        requestAction: @escaping () -> Void,
+        action: @escaping () -> Void
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            permissionRow(title: title, description: description, status: status,
+                          requestAction: requestAction, action: action)
+            if status != .granted {
+                Button("Uttr missing from the pane? Repair & re-request") {
+                    permissionService.repairInputMonitoring()
+                    refreshStatus()
+                }
+                .buttonStyle(.link)
+                .font(.caption)
+            }
         }
     }
 

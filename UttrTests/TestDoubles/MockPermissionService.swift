@@ -34,6 +34,12 @@ final class MockPermissionService: PermissionChecking, @unchecked Sendable {
         return requestAccessResult
     }
 
+    var repairInputCalled = false
+    func repairInputMonitoring() { repairInputCalled = true }
+
+    var revealAppCalled = false
+    func revealAppForManualAdd() { revealAppCalled = true }
+
     func openInputMonitoringSettings() { openInputCalled = true }
     func openAccessibilitySettings() { openAccessCalled = true }
     func openMicrophoneSettings() { openMicCalled = true }

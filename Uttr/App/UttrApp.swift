@@ -15,13 +15,10 @@ struct UttrApp: App {
                 metrics: env.dictationMetrics,
                 permissionService: env.permissionService
             )
-                .onAppear {
-                    if !env.configStore.settings.hasCompletedOnboarding {
-                    }
-                }
         } label: {
-            Image(systemName: env.appState.dictationState.menuBarIcon)
-                .accessibilityLabel("Uttr")
+            // The label renders in the status bar at launch, so this is the
+            // reliable first-run hook (menu content only appears on click).
+            MenuBarLabel(appState: env.appState, configStore: env.configStore, permissionService: env.permissionService)
         }
 
         Settings {
@@ -44,7 +41,13 @@ struct UttrApp: App {
         #endif
 
         Window("Welcome to Uttr", id: "onboarding") {
-            OnboardingView(permissionService: env.permissionService) {
+            OnboardingView(
+                permissionService: env.permissionService,
+                hotkeyDisplay: Hotkey(
+                    keyCode: env.configStore.settings.hotkey.keyCode,
+                    modifiers: Set(env.configStore.settings.hotkey.modifiers)
+                ).displayString
+            ) {
                 try? env.configStore.update { $0.hasCompletedOnboarding = true }
                 NSApplication.shared.keyWindow?.close()
             }

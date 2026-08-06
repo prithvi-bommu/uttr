@@ -8,6 +8,7 @@ struct OnboardingView: View {
     @State private var inputStatus: PermissionStatus = .unknown
     @State private var accessibilityStatus: PermissionStatus = .unknown
     let permissionService: PermissionChecking
+    var hotkeyDisplay: String = "Control + Option + Space"
     let onComplete: () -> Void
 
     var body: some View {
@@ -137,9 +138,17 @@ struct OnboardingView: View {
                 permissionService.requestInputMonitoring()
                 refreshStatuses()
             },
-            action: { permissionService.openInputMonitoringSettings() },
-            actionLabel: "Open System Settings",
-            note: "After granting, quit and reopen Uttr for the change to take effect."
+            action: {
+                permissionService.openInputMonitoringSettings()
+                permissionService.revealAppForManualAdd()
+            },
+            actionLabel: "Open Settings + Show App",
+            note: "If Uttr isn't listed in the pane, drag the Uttr icon from the Finder window into the list (or click + and pick it). macOS may offer to quit and reopen Uttr — accept it; this is the last step of setup.",
+            repairLabel: "No prompt and Uttr isn't listed? Repair & re-request",
+            repairAction: {
+                permissionService.repairInputMonitoring()
+                refreshStatuses()
+            }
         )
     }
 
@@ -170,10 +179,10 @@ struct OnboardingView: View {
                 .font(.title)
                 .fontWeight(.bold)
 
-            Text("Your default dictation shortcut is:")
+            Text("Your dictation shortcut is:")
                 .foregroundStyle(.secondary)
 
-            Text("Control + Option + Space")
+            Text(hotkeyDisplay)
                 .font(.title3)
                 .fontWeight(.medium)
                 .padding(.horizontal, 16)
@@ -197,7 +206,9 @@ struct OnboardingView: View {
         requestAction: @escaping () -> Void,
         action: @escaping () -> Void,
         actionLabel: String,
-        note: String? = nil
+        note: String? = nil,
+        repairLabel: String? = nil,
+        repairAction: (() -> Void)? = nil
     ) -> some View {
         VStack(spacing: 16) {
             Image(systemName: icon)
@@ -234,6 +245,14 @@ struct OnboardingView: View {
                     .font(.caption)
                     .foregroundStyle(.orange)
             }
+
+            if status != .granted, let repairLabel, let repairAction {
+                Button(repairLabel) {
+                    repairAction()
+                }
+                .buttonStyle(.link)
+                .font(.caption)
+            }
         }
     }
 
@@ -254,10 +273,14 @@ struct OnboardingView: View {
 }
 
 enum OnboardingStep: Int, CaseIterable {
+    // Input Monitoring is deliberately LAST: its system prompt offers
+    // "Quit & Reopen", which restarts the app. Placing it after Microphone
+    // and Accessibility means that restart happens once everything else is
+    // granted — so the event tap comes up successfully on the relaunch.
     case welcome
     case microphone
-    case inputMonitoring
     case accessibility
+    case inputMonitoring
     case done
 
     var next: OnboardingStep {
