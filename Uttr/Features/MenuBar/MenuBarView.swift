@@ -3,6 +3,7 @@ import SwiftUI
 struct MenuBarView: View {
     let appState: AppState
     let configStore: ConfigurationStore
+    @Environment(\.openWindow) private var openWindow
 
     var body: some View {
         Text(statusText)
@@ -24,6 +25,13 @@ struct MenuBarView: View {
         Button("View privacy details…") {
             SettingsLink.showSettings()
         }
+
+        #if DEBUG
+        Button("Diagnostics…") {
+            openWindow(id: "diagnostics")
+            NSApplication.shared.activate()
+        }
+        #endif
 
         Divider()
 

@@ -10,6 +10,7 @@ final class AppEnvironment {
     let permissionService: PermissionChecking = RealPermissionService()
     let hotkeyService: HotkeyServiceProtocol = EventTapHotkeyService()
     let transcriptionCoordinator = TranscriptionCoordinator()
+    let dictationMetrics = DictationMetrics()
     private(set) var dictationController: DictationController!
     private let logger = Logger(subsystem: "com.uttr.app", category: "app")
 
@@ -19,7 +20,8 @@ final class AppEnvironment {
             appState: appState,
             recorder: AVAudioEngineRecorder(),
             coordinator: transcriptionCoordinator,
-            pasteService: PasteService()
+            pasteService: PasteService(),
+            metrics: dictationMetrics
         )
         configureTranscription()
         startHotkeyService()
