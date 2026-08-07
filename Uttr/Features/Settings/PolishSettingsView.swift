@@ -2,12 +2,47 @@ import SwiftUI
 
 struct PolishSettingsView: View {
     @Bindable var store: ConfigurationStore
+    var keyTester = PolishKeyTester()
     @State private var revealOpenAIKey = false
     @State private var revealAnthropicKey = false
     @State private var testKeyResult: String?
+    @State private var testingKey = false
 
     var body: some View {
         Form {
+            Section("Local Cleanup (offline)") {
+                Toggle("Clean up transcript on device", isOn: Binding(
+                    get: { store.settings.localPolish.enabled },
+                    set: { newValue in
+                        try? store.update { $0.localPolish.enabled = newValue }
+                    }
+                ))
+                Text("Runs a fast rule-based pass entirely on your Mac — no network, no API key. Applied after transcription and before pasting.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                if store.settings.localPolish.enabled {
+                    Toggle("Remove filler words (um, uh, …)", isOn: Binding(
+                        get: { store.settings.localPolish.removeFillers },
+                        set: { newValue in
+                            try? store.update { $0.localPolish.removeFillers = newValue }
+                        }
+                    ))
+                    Toggle("Collapse repeated words", isOn: Binding(
+                        get: { store.settings.localPolish.collapseDuplicates },
+                        set: { newValue in
+                            try? store.update { $0.localPolish.collapseDuplicates = newValue }
+                        }
+                    ))
+                    Toggle("Capitalize sentences", isOn: Binding(
+                        get: { store.settings.localPolish.capitalizeSentences },
+                        set: { newValue in
+                            try? store.update { $0.localPolish.capitalizeSentences = newValue }
+                        }
+                    ))
+                }
+            }
+
             Section("Text Polish") {
                 Toggle("Enable text polish", isOn: Binding(
                     get: { store.settings.cloudPolish.enabled },
@@ -126,7 +161,29 @@ struct PolishSettingsView: View {
                     .toggleStyle(.checkbox)
             }
 
-            Button("Test Key…") {
+            HStack {
+                Button(testingKey ? "Testing…" : "Test Key…") {
+                    let provider = store.settings.cloudPolish.provider
+                    let config = ProviderConfig(
+                        apiKey: apiKey.wrappedValue,
+                        model: model.wrappedValue
+                    )
+                    let timeout = store.settings.cloudPolish.timeoutSeconds
+                    testingKey = true
+                    testKeyResult = nil
+                    Task {
+                        let result = await keyTester.test(
+                            provider: provider, config: config,
+                            timeoutSeconds: timeout)
+                        testKeyResult = result.displayText
+                        testingKey = false
+                    }
+                }
+                .disabled(testingKey || apiKey.wrappedValue.trimmingCharacters(in: .whitespaces).isEmpty)
+                if testingKey {
+                    ProgressView()
+                        .controlSize(.small)
+                }
             }
 
             if let result = testKeyResult {

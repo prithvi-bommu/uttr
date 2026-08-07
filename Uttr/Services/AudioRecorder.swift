@@ -1,4 +1,5 @@
 import AVFoundation
+import Accelerate
 import Foundation
 import OSLog
 
@@ -15,14 +16,26 @@ protocol AudioRecording: Sendable {
     func cancelRecording() async
 }
 
-/// Validation policy from spec §8: reject dictations shorter than 250 ms or
-/// containing no meaningful signal; cap at 120 s (enforced by the controller's
-/// timer, validated again here defensively).
+/// Validation policy from spec §8, refined for accuracy:
+/// - Reject only genuinely-too-short captures (accidental key taps) below
+///   `minimumDuration`; deliberate short words are kept and padded (below).
+/// - Use RMS energy rather than peak amplitude to decide "no usable audio",
+///   so quiet-but-real speech is no longer discarded on a single loud click.
+/// - Cap at 120 s (enforced by the controller's timer; validated defensively).
+/// Usable-but-short clips are zero-padded up to `minimumDecodeWindow` by
+/// `rightPadded(_:)` so the decoder always sees a full analysis window
+/// instead of dropping or garbling the dictation.
 enum AudioPolicy {
-    static let minimumDuration: TimeInterval = 0.25
+    /// Below this we assume an accidental tap, not intentional dictation.
+    static let minimumDuration: TimeInterval = 0.15
     static let maximumDuration: TimeInterval = 120
-    /// Peak amplitude below this is treated as silence/no usable audio.
-    static let silencePeakThreshold: Float = 0.001
+    /// Clips shorter than this (seconds) are right-padded with silence before
+    /// decoding so short dictations aren't lost.
+    static let minimumDecodeWindow: TimeInterval = 1.0
+    /// RMS energy below this is treated as silence/no usable audio. RMS tracks
+    /// perceived loudness far better than peak amplitude, so a brief transient
+    /// no longer rescues an otherwise-silent buffer and quiet speech is kept.
+    static let silenceRMSThreshold: Float = 0.001
 
     enum Verdict: Equatable {
         case usable
@@ -32,12 +45,28 @@ enum AudioPolicy {
 
     static func evaluate(_ audio: CapturedAudio) -> Verdict {
         if audio.duration < minimumDuration { return .tooShort }
-        var peak: Float = 0
-        for sample in audio.samples {
-            peak = max(peak, abs(sample))
-        }
-        if peak < silencePeakThreshold { return .noUsableAudio }
+        if rootMeanSquare(audio.samples) < silenceRMSThreshold { return .noUsableAudio }
         return .usable
+    }
+
+    /// Root-mean-square energy of the samples, computed with vDSP.
+    static func rootMeanSquare(_ samples: [Float]) -> Float {
+        guard !samples.isEmpty else { return 0 }
+        var rms: Float = 0
+        vDSP_rmsqv(samples, 1, &rms, vDSP_Length(samples.count))
+        return rms
+    }
+
+    /// Returns `audio` right-padded with trailing silence up to
+    /// `minimumDecodeWindow`. Longer clips are returned unchanged.
+    static func rightPadded(_ audio: CapturedAudio) -> CapturedAudio {
+        guard audio.sampleRate > 0 else { return audio }
+        let minimumSamples = Int(minimumDecodeWindow * audio.sampleRate)
+        guard audio.samples.count < minimumSamples else { return audio }
+        var padded = audio.samples
+        padded.append(contentsOf:
+            [Float](repeating: 0, count: minimumSamples - audio.samples.count))
+        return CapturedAudio(samples: padded, sampleRate: audio.sampleRate)
     }
 }
 

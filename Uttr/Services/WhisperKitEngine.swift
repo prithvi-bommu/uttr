@@ -48,7 +48,9 @@ final class WhisperKitEngine: TranscriptionEngine {
             let text = try await client.transcribe(samples: audio.samples)
             let ms = Int(Date().timeIntervalSince(start) * 1000)
             logger.info("Transcribed \(String(format: "%.1f", audio.duration), privacy: .public)s in \(ms, privacy: .public) ms")
-            return text.trimmingCharacters(in: .whitespacesAndNewlines)
+            // Strip Whisper silence artifacts ("[ Silence ]", "(soft music)",
+            // bare "you"/"thank you") before returning. Fail-open.
+            return HallucinationFilter.clean(text)
         } catch {
             logger.error("Transcription failed: \(error.localizedDescription, privacy: .public)")
             throw UttrError.transcriptionFailed(underlying: error)
@@ -114,12 +116,36 @@ final class WhisperKitClient: WhisperTranscribing, @unchecked Sendable {
     func transcribe(samples: [Float]) async throws -> String {
         guard let instance = currentInstance() else { throw UttrError.engineNotReady }
 
-        let results = await instance.transcribe(audioArrays: [samples])
+        let results = await instance.transcribe(
+            audioArrays: [samples],
+            decodeOptions: Self.dictationDecodeOptions)
         guard let first = results.first, let transcription = first else {
             return ""
         }
         return transcription.map(\.text).joined(separator: " ")
     }
+
+    /// Decode options tuned for short, single-pass dictation rather than long
+    /// media transcription:
+    /// - `temperature: 0` + `temperatureFallbackCount: 0`: one deterministic
+    ///   greedy pass, no temperature fallback loop (lower latency, stable output).
+    /// - `usePrefillPrompt: true`: seed the SOT prompt so the model does not
+    ///   waste tokens re-detecting language/task on every short clip.
+    /// - `language: "en"`: the app ships only English (`.en`) models, so skip
+    ///   language detection entirely.
+    /// - `suppressBlank: true`: don't emit leading blank/space tokens.
+    /// - `withoutTimestamps: true` + `skipSpecialTokens: true`: we want plain
+    ///   text to paste, never timestamp or special tokens.
+    static let dictationDecodeOptions = DecodingOptions(
+        task: .transcribe,
+        language: "en",
+        temperature: 0.0,
+        temperatureFallbackCount: 0,
+        usePrefillPrompt: true,
+        skipSpecialTokens: true,
+        withoutTimestamps: true,
+        suppressBlank: true
+    )
 }
 #else
 /// Placeholder used only when the WhisperKit package is not yet wired into

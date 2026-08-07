@@ -7,6 +7,7 @@ struct UttrSettings: Codable, Equatable, Sendable {
     var transcriptionEngine: TranscriptionEngineSelection = .automatic
     var whisperModel: String = "small.en"
     var cloudPolish: CloudPolishConfig = CloudPolishConfig()
+    var localPolish: LocalPolishConfig = LocalPolishConfig()
     var startAtLogin: Bool = false
 
     static let `default` = UttrSettings()
@@ -121,4 +122,35 @@ enum PolishProvider: String, Codable, Equatable, Sendable {
 struct ProviderConfig: Codable, Equatable, Sendable {
     var apiKey: String
     var model: String
+}
+
+/// Offline, rule-based transcript cleanup (no network, no API key).
+/// Applied after transcription when `enabled` is true.
+struct LocalPolishConfig: Codable, Equatable, Sendable {
+    var enabled: Bool = false
+    var removeFillers: Bool = true
+    var collapseDuplicates: Bool = true
+    var capitalizeSentences: Bool = true
+}
+
+
+// MARK: - Backward-compatible decoding
+
+extension UttrSettings {
+    /// Tolerant decoder: every field falls back to its default when the key is
+    /// absent. Without this, adding any new field (e.g. `localPolish`) would
+    /// make the synthesized decoder throw `keyNotFound` on configs written by
+    /// older builds, and `ConfigurationStore.load()` would silently reset the
+    /// user's whole configuration to defaults. Encoding stays synthesized.
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.schemaVersion = try container.decodeIfPresent(Int.self, forKey: .schemaVersion) ?? 1
+        self.hasCompletedOnboarding = try container.decodeIfPresent(Bool.self, forKey: .hasCompletedOnboarding) ?? false
+        self.hotkey = try container.decodeIfPresent(HotkeyConfig.self, forKey: .hotkey) ?? HotkeyConfig()
+        self.transcriptionEngine = try container.decodeIfPresent(TranscriptionEngineSelection.self, forKey: .transcriptionEngine) ?? .automatic
+        self.whisperModel = try container.decodeIfPresent(String.self, forKey: .whisperModel) ?? "small.en"
+        self.cloudPolish = try container.decodeIfPresent(CloudPolishConfig.self, forKey: .cloudPolish) ?? CloudPolishConfig()
+        self.localPolish = try container.decodeIfPresent(LocalPolishConfig.self, forKey: .localPolish) ?? LocalPolishConfig()
+        self.startAtLogin = try container.decodeIfPresent(Bool.self, forKey: .startAtLogin) ?? false
+    }
 }

@@ -209,4 +209,46 @@ struct SettingsTests {
         settings.cloudPolish.provider = .anthropic
         #expect(settings.activeProviderConfig == settings.cloudPolish.anthropic)
     }
+
+    // MARK: - Local polish
+
+    @Test("local polish defaults to disabled with all rules on")
+    func localPolishDefaults() {
+        let config = UttrSettings.default.localPolish
+        #expect(config.enabled == false)
+        #expect(config.removeFillers)
+        #expect(config.collapseDuplicates)
+        #expect(config.capitalizeSentences)
+    }
+
+    // MARK: - Backward-compatible decoding
+
+    @Test("decodes config JSON missing the localPolish key without wiping other fields")
+    func decodesLegacyConfig() throws {
+        // Simulates a config written by a build before `localPolish` existed.
+        let legacy = """
+        {
+          "schemaVersion": 1,
+          "hasCompletedOnboarding": true,
+          "whisperModel": "base.en",
+          "transcriptionEngine": "whisperKit",
+          "startAtLogin": true
+        }
+        """.data(using: .utf8)!
+
+        let decoded = try JSONDecoder().decode(UttrSettings.self, from: legacy)
+
+        #expect(decoded.hasCompletedOnboarding == true)
+        #expect(decoded.whisperModel == "base.en")
+        #expect(decoded.transcriptionEngine == .whisperKit)
+        #expect(decoded.startAtLogin == true)
+        // Missing key falls back to default rather than throwing.
+        #expect(decoded.localPolish == LocalPolishConfig())
+    }
+
+    @Test("empty JSON object decodes to defaults")
+    func decodesEmptyObject() throws {
+        let decoded = try JSONDecoder().decode(UttrSettings.self, from: "{}".data(using: .utf8)!)
+        #expect(decoded == UttrSettings.default)
+    }
 }
