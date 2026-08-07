@@ -5,6 +5,8 @@ enum DictationState: Equatable, Sendable {
     case recording(startedAt: Date)
     case transcribing
     case polishing
+    /// Waiting on the configured AI backend to answer a spoken prompt.
+    case prompting
     case pasting
     case awaitingHotkey
     case blocked(PermissionBlocker)
@@ -25,6 +27,7 @@ enum DictationState: Equatable, Sendable {
         case .recording: "Recording…"
         case .transcribing: "Transcribing…"
         case .polishing: "Polishing…"
+        case .prompting: "Asking AI…"
         case .pasting: "Pasting…"
         case .awaitingHotkey: "Press your shortcut…"
         case .blocked(let blocker): blocker.statusText
@@ -35,7 +38,7 @@ enum DictationState: Equatable, Sendable {
         switch self {
         case .idle: "mic.circle"
         case .recording: "mic.circle.fill"
-        case .transcribing, .polishing, .pasting: "ellipsis.circle"
+        case .transcribing, .polishing, .prompting, .pasting: "ellipsis.circle"
         case .awaitingHotkey: "keyboard"
         case .blocked: "exclamationmark.triangle"
         }

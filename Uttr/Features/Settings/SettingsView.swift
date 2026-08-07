@@ -9,6 +9,7 @@ struct SettingsView: View {
     private let transcriptionCoordinator: TranscriptionCoordinator?
     private let onTranscriptionChanged: (() -> Void)?
     private let onStartAtLoginChanged: ((Bool) -> Bool)?
+    private let onAIConfigChanged: (() -> Void)?
 
     init(
         store: ConfigurationStore,
@@ -18,7 +19,8 @@ struct SettingsView: View {
         onCancelCapture: @escaping () -> Void,
         transcriptionCoordinator: TranscriptionCoordinator? = nil,
         onTranscriptionChanged: (() -> Void)? = nil,
-        onStartAtLoginChanged: ((Bool) -> Bool)? = nil
+        onStartAtLoginChanged: ((Bool) -> Bool)? = nil,
+        onAIConfigChanged: (() -> Void)? = nil
     ) {
         self._store = State(initialValue: store)
         self.appState = appState
@@ -28,6 +30,7 @@ struct SettingsView: View {
         self.transcriptionCoordinator = transcriptionCoordinator
         self.onTranscriptionChanged = onTranscriptionChanged
         self.onStartAtLoginChanged = onStartAtLoginChanged
+        self.onAIConfigChanged = onAIConfigChanged
     }
 
     var body: some View {
@@ -50,6 +53,9 @@ struct SettingsView: View {
 
             PolishSettingsView(store: store)
                 .tabItem { Label("Text Polish", systemImage: "sparkles") }
+
+            AIContentSettingsView(store: store, onConfigChanged: onAIConfigChanged)
+                .tabItem { Label("AI Content", systemImage: "wand.and.stars") }
 
             PermissionsSettingsView(permissionService: permissionService)
                 .tabItem { Label("Permissions", systemImage: "lock.shield") }

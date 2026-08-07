@@ -23,6 +23,12 @@ final class MockHotkeyService: HotkeyServiceProtocol, @unchecked Sendable {
         lastHotkey = hotkey
     }
 
+    var lastAIHotkey: Hotkey?
+
+    func updateAIHotkey(_ hotkey: Hotkey?) {
+        lastAIHotkey = hotkey
+    }
+
     func beginCapture() {
         isCapturing = true
         captureCancelled = false

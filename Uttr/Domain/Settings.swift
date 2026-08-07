@@ -8,6 +8,7 @@ struct UttrSettings: Codable, Equatable, Sendable {
     var whisperModel: String = "small.en"
     var cloudPolish: CloudPolishConfig = CloudPolishConfig()
     var localPolish: LocalPolishConfig = LocalPolishConfig()
+    var aiContent: AIContentConfig = AIContentConfig()
     var startAtLogin: Bool = false
 
     static let `default` = UttrSettings()
@@ -133,6 +134,59 @@ struct LocalPolishConfig: Codable, Equatable, Sendable {
     var capitalizeSentences: Bool = true
 }
 
+/// "AI Content" mode: a second hold-to-talk hotkey whose transcript is sent
+/// to a configurable AI backend as a prompt; the response is pasted instead
+/// of the raw dictation. Off by default.
+///
+/// Providers are deliberately generic so that backend choice is pure runtime
+/// configuration (this file lives in Application Support, never in the repo):
+/// - `httpEndpoint`: any OpenAI-compatible chat-completions server — real
+///   OpenAI, a local Ollama, LiteLLM, or any compatible gateway (base URL
+///   is configurable).
+/// - `anthropic`: the Anthropic messages API.
+/// - `commandLine`: run a local executable with the prompt and paste its
+///   stdout — lets any locally-installed CLI act as the backend.
+struct AIContentConfig: Codable, Equatable, Sendable {
+    var enabled: Bool = false
+    /// Default ⌥A (keyCode 0 = "a").
+    var hotkey: HotkeyConfig = HotkeyConfig(keyCode: 0, modifiers: [.option])
+    var provider: AIProviderKind = .httpEndpoint
+    var http: HTTPProviderConfig = HTTPProviderConfig()
+    var anthropic: ProviderConfig = ProviderConfig(apiKey: "", model: "claude-haiku-4-5")
+    var cli: CLIProviderConfig = CLIProviderConfig()
+    var timeoutSeconds: Int = 30
+    /// Prepended to every request so responses paste cleanly.
+    var systemPrompt: String = AIContentConfig.defaultSystemPrompt
+
+    static let defaultSystemPrompt = """
+    You produce content requested by voice. Respond with ONLY the requested \
+    content itself - no preamble, no explanations, no markdown fences, no \
+    closing remarks. If the request is ambiguous, make reasonable assumptions.
+    """
+}
+
+enum AIProviderKind: String, Codable, Equatable, Sendable, CaseIterable {
+    case httpEndpoint
+    case anthropic
+    case commandLine
+}
+
+/// OpenAI-compatible chat-completions endpoint. Base URL is configurable so
+/// the same code serves api.openai.com, a local server, or any gateway.
+struct HTTPProviderConfig: Codable, Equatable, Sendable {
+    var baseURL: String = "https://api.openai.com/v1"
+    var apiKey: String = ""
+    var model: String = "gpt-5.6-luna"
+}
+
+/// Local executable backend. The prompt is passed on stdin; stdout is the
+/// response. `arguments` supports an optional "{prompt}" placeholder for
+/// tools that take the prompt as an argument instead.
+struct CLIProviderConfig: Codable, Equatable, Sendable {
+    var executablePath: String = ""
+    var arguments: [String] = []
+}
+
 
 // MARK: - Backward-compatible decoding
 
@@ -151,6 +205,7 @@ extension UttrSettings {
         self.whisperModel = try container.decodeIfPresent(String.self, forKey: .whisperModel) ?? "small.en"
         self.cloudPolish = try container.decodeIfPresent(CloudPolishConfig.self, forKey: .cloudPolish) ?? CloudPolishConfig()
         self.localPolish = try container.decodeIfPresent(LocalPolishConfig.self, forKey: .localPolish) ?? LocalPolishConfig()
+        self.aiContent = try container.decodeIfPresent(AIContentConfig.self, forKey: .aiContent) ?? AIContentConfig()
         self.startAtLogin = try container.decodeIfPresent(Bool.self, forKey: .startAtLogin) ?? false
     }
 }

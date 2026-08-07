@@ -43,7 +43,11 @@ struct HotkeyEventProcessor {
     ]
 
     private(set) var hotkey: Hotkey
+    /// Secondary hold-to-talk hotkey for AI-content mode; nil when disabled.
+    /// Never bare-Fn (that gesture is reserved for the primary hotkey).
+    private(set) var aiHotkey: Hotkey?
     private(set) var isHotkeyHeld = false
+    private(set) var isAIHotkeyHeld = false
     private(set) var isCapturing = false
 
     /// Candidate combo sampled at key-DOWN so modifier release order at the
@@ -61,6 +65,12 @@ struct HotkeyEventProcessor {
     mutating func updateHotkey(_ newHotkey: Hotkey) {
         hotkey = newHotkey
         isHotkeyHeld = false
+    }
+
+    mutating func updateAIHotkey(_ newHotkey: Hotkey?) {
+        // Bare Fn is reserved for the primary hotkey (ADR-008); refuse it here.
+        aiHotkey = (newHotkey?.isFnGlobe == true) ? nil : newHotkey
+        isAIHotkeyHeld = false
     }
 
     mutating func beginCapture() {
@@ -85,18 +95,47 @@ struct HotkeyEventProcessor {
     // MARK: - Normal hold-to-talk mode
 
     private mutating func processHotkey(_ input: KeyEventInput) -> HotkeyProcessorAction {
-        if input.kind == .keyDown && input.keyCode == Self.escapeKeyCode && isHotkeyHeld {
-            isHotkeyHeld = false
-            return .emit(.escapePressed, swallow: true)
+        if input.kind == .keyDown && input.keyCode == Self.escapeKeyCode {
+            if isHotkeyHeld || isAIHotkeyHeld {
+                isHotkeyHeld = false
+                isAIHotkeyHeld = false
+                return .emit(.escapePressed, swallow: true)
+            }
+        }
+
+        // AI-content hotkey (never bare-Fn). Checked before the primary so a
+        // more-specific combo (e.g. ⌥A) wins over an overlapping primary.
+        if let aiHotkey, !isHotkeyHeld {
+            let aiModifiersMatch = Self.checkModifiers(input.flags, against: aiHotkey.modifiers)
+
+            if input.kind == .keyDown && input.keyCode == aiHotkey.keyCode && aiModifiersMatch {
+                if isAIHotkeyHeld {
+                    return .swallow // key repeat
+                }
+                isAIHotkeyHeld = true
+                return .emit(.aiHotkeyDown, swallow: true)
+            }
+            if input.kind == .keyUp && input.keyCode == aiHotkey.keyCode && isAIHotkeyHeld {
+                isAIHotkeyHeld = false
+                return .emit(.aiHotkeyUp, swallow: true)
+            }
+            if input.kind == .flagsChanged && isAIHotkeyHeld {
+                if !Self.checkModifiers(input.flags, against: aiHotkey.modifiers) {
+                    isAIHotkeyHeld = false
+                    return .emit(.aiHotkeyUp, swallow: false)
+                }
+            }
         }
 
         if hotkey.isFnGlobe {
+            // While an AI dictation is in flight, ignore the primary gesture.
+            if isAIHotkeyHeld { return .pass }
             return processBareFnHotkey(input)
         }
 
         let modifiersMatch = Self.checkModifiers(input.flags, against: hotkey.modifiers)
 
-        if input.kind == .keyDown && input.keyCode == hotkey.keyCode && modifiersMatch {
+        if input.kind == .keyDown && input.keyCode == hotkey.keyCode && modifiersMatch && !isAIHotkeyHeld {
             if isHotkeyHeld {
                 return .swallow // key repeat
             }

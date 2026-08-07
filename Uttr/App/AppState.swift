@@ -11,6 +11,9 @@ enum DictationEvent: Sendable {
     case transcriptionFailed
     case polishCompleted(String)
     case polishFailed
+    case aiRequestStarted
+    case aiResponseReceived(String)
+    case aiRequestFailed
     case pasteCompleted
     case pasteFailed
     case permissionBlocked(PermissionBlocker)
@@ -33,6 +36,9 @@ enum DictationEvent: Sendable {
         case .transcriptionFailed: "transcriptionFailed"
         case .polishCompleted: "polishCompleted"
         case .polishFailed: "polishFailed"
+        case .aiRequestStarted: "aiRequestStarted"
+        case .aiResponseReceived: "aiResponseReceived"
+        case .aiRequestFailed: "aiRequestFailed"
         case .pasteCompleted: "pasteCompleted"
         case .pasteFailed: "pasteFailed"
         case .permissionBlocked(let blocker): "permissionBlocked(\(blocker))"
@@ -52,6 +58,10 @@ final class AppState {
     private(set) var lastTranscript: String?
     private(set) var pasteFailedText: String?
 
+    /// Invoked after every accepted transition with the new state.
+    /// Drives UI that lives outside the SwiftUI tree (recording indicator).
+    @ObservationIgnored var onStateChange: ((DictationState) -> Void)?
+
     @ObservationIgnored
     private let logger = Logger(subsystem: "com.uttr.app", category: "state")
 
@@ -69,6 +79,7 @@ final class AppState {
         dictationState = next
         logger.info("Transition: \(String(describing: from)) -> \(String(describing: next))")
         DebugFileLog.append("state", "Transition: \(String(describing: from)) -> \(String(describing: next)) (event: \(event.debugName))")
+        onStateChange?(next)
         return true
     }
 
@@ -121,6 +132,20 @@ final class AppState {
 
         case (.polishing, .polishFailed):
             return .pasting
+
+        // AI-content mode: the transcript is a prompt, not the payload.
+        case (.transcribing, .aiRequestStarted):
+            return .prompting
+
+        case (.prompting, .aiResponseReceived(let text)):
+            lastTranscript = text
+            return .pasting
+
+        case (.prompting, .aiRequestFailed):
+            // Nothing worth pasting on failure; return to idle so the
+            // hotkeys keep working. The failure is logged and surfaced
+            // through the indicator disappearing without a paste.
+            return .idle
 
         case (.pasting, .pasteCompleted):
             pasteFailedText = nil

@@ -12,6 +12,15 @@ struct RealDictationClock: DictationClock {
     }
 }
 
+/// What a dictation's transcript is for.
+enum DictationMode: Sendable {
+    /// Normal dictation: transcript (optionally polished) is pasted.
+    case dictation
+    /// AI content: transcript is sent to the configured AI backend as a
+    /// prompt and the *response* is pasted.
+    case aiContent
+}
+
 /// Drives the dictation transaction around `AppState`:
 /// hotkey down → start capture (+120 s limit timer)
 /// hotkey up   → stop capture → validate → transcribe → (polish M6) → paste
@@ -31,11 +40,16 @@ final class DictationController {
     /// settings change takes effect immediately without rebuilding the
     /// controller. Defaults to "never polish" for tests and older call sites.
     private let localPolisherProvider: @MainActor () -> TextPolisher?
+    /// Returns the AI backend when AI-content mode is enabled and configured,
+    /// or nil to fail the AI dictation. Evaluated per dictation.
+    private let aiProvider: @MainActor () -> AIContentGenerating?
     private let logger = Logger(subsystem: "com.uttr.app", category: "dictation")
 
     private var maxDurationTask: Task<Void, Never>?
     private var pipelineTask: Task<Void, Never>?
     private var attemptStartedAt = Date()
+    /// Mode of the dictation currently in flight. Set by `recordingStarted`.
+    private var currentMode: DictationMode = .dictation
 
     init(
         appState: AppState,
@@ -44,7 +58,8 @@ final class DictationController {
         pasteService: PasteServicing,
         clock: DictationClock = RealDictationClock(),
         metrics: DictationMetrics? = nil,
-        localPolisherProvider: @escaping @MainActor () -> TextPolisher? = { nil }
+        localPolisherProvider: @escaping @MainActor () -> TextPolisher? = { nil },
+        aiProvider: @escaping @MainActor () -> AIContentGenerating? = { nil }
     ) {
         self.appState = appState
         self.recorder = recorder
@@ -53,12 +68,14 @@ final class DictationController {
         self.clock = clock
         self.metrics = metrics
         self.localPolisherProvider = localPolisherProvider
+        self.aiProvider = aiProvider
     }
 
     // MARK: - Hotkey entry points (called by AppEnvironment after AppState transitions)
 
     /// Call after AppState accepted `.hotkeyDown` (state is now .recording).
-    func recordingStarted() {
+    func recordingStarted(mode: DictationMode = .dictation) {
+        currentMode = mode
         attemptStartedAt = Date()
         pipelineTask = Task { [weak self] in
             guard let self else { return }
@@ -143,6 +160,13 @@ final class DictationController {
         }
         DebugFileLog.append("dictation", "Transcribed \(transcript.count) characters")
 
+        if currentMode == .aiContent {
+            await runAIContent(prompt: transcript, audio: audio,
+                               releasedAt: releasedAt, transcriptAt: transcriptAt,
+                               hitMaxDuration: hitMaxDuration)
+            return
+        }
+
         appState.handle(.transcriptionCompleted(transcript))
 
         // Optional local (offline) polish. Fail-open: any failure or an empty
@@ -172,6 +196,44 @@ final class DictationController {
         recordOutcome(pasted ? .completed : .pasteFailed,
                       audio: audio, releasedAt: releasedAt, transcriptAt: transcriptAt,
                       pastedAt: Date(), transcriptCharacters: finalText.count,
+                      hitMaxDuration: hitMaxDuration)
+    }
+
+    // MARK: - AI content stage
+
+    /// Sends the spoken prompt to the configured AI backend and pastes the
+    /// response. Only the transcribed text leaves the machine, never audio.
+    /// Failures return to idle without pasting anything.
+    private func runAIContent(
+        prompt: String, audio: CapturedAudio,
+        releasedAt: Date, transcriptAt: Date, hitMaxDuration: Bool
+    ) async {
+        guard let provider = aiProvider() else {
+            logger.error("AI content requested but no provider is configured")
+            DebugFileLog.append("dictation", "AI FAILED: no provider configured")
+            appState.handle(.transcriptionFailed) // transcribing -> idle
+            recordOutcome(.transcriptionFailed, audio: audio, hitMaxDuration: hitMaxDuration)
+            return
+        }
+
+        appState.handle(.aiRequestStarted)
+        let response: String
+        do {
+            response = try await provider.generate(prompt: prompt)
+        } catch {
+            logger.error("AI request failed: \(error.localizedDescription, privacy: .public)")
+            DebugFileLog.append("dictation", "AI FAILED: \(error.localizedDescription)")
+            appState.handle(.aiRequestFailed)
+            recordOutcome(.transcriptionFailed, audio: audio, hitMaxDuration: hitMaxDuration)
+            return
+        }
+
+        appState.handle(.aiResponseReceived(response))
+        let pasted = await pasteService.paste(response)
+        appState.handle(pasted ? .pasteCompleted : .pasteFailed)
+        recordOutcome(pasted ? .completed : .pasteFailed,
+                      audio: audio, releasedAt: releasedAt, transcriptAt: transcriptAt,
+                      pastedAt: Date(), transcriptCharacters: response.count,
                       hitMaxDuration: hitMaxDuration)
     }
 
