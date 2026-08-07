@@ -26,6 +26,11 @@ final class DictationController {
     private let pasteService: PasteServicing
     private let clock: DictationClock
     private let metrics: DictationMetrics?
+    /// Returns a local text polisher when offline cleanup is enabled in
+    /// settings, or nil to skip polishing. Evaluated per dictation so a
+    /// settings change takes effect immediately without rebuilding the
+    /// controller. Defaults to "never polish" for tests and older call sites.
+    private let localPolisherProvider: @MainActor () -> TextPolisher?
     private let logger = Logger(subsystem: "com.uttr.app", category: "dictation")
 
     private var maxDurationTask: Task<Void, Never>?
@@ -38,7 +43,8 @@ final class DictationController {
         coordinator: TranscriptionCoordinator,
         pasteService: PasteServicing,
         clock: DictationClock = RealDictationClock(),
-        metrics: DictationMetrics? = nil
+        metrics: DictationMetrics? = nil,
+        localPolisherProvider: @escaping @MainActor () -> TextPolisher? = { nil }
     ) {
         self.appState = appState
         self.recorder = recorder
@@ -46,6 +52,7 @@ final class DictationController {
         self.pasteService = pasteService
         self.clock = clock
         self.metrics = metrics
+        self.localPolisherProvider = localPolisherProvider
     }
 
     // MARK: - Hotkey entry points (called by AppEnvironment after AppState transitions)
@@ -110,9 +117,13 @@ final class DictationController {
             break
         }
 
+        // Short-but-usable clips are padded to a full decode window so the
+        // model isn't handed a sub-window it will drop or garble.
+        let decodeAudio = AudioPolicy.rightPadded(audio)
+
         let transcript: String
         do {
-            transcript = try await coordinator.transcribe(audio)
+            transcript = try await coordinator.transcribe(decodeAudio)
         } catch {
             logger.error("Transcription failed: \(error.localizedDescription, privacy: .public)")
             DebugFileLog.append("dictation", "Transcription FAILED: \(error.localizedDescription)")
@@ -134,15 +145,33 @@ final class DictationController {
 
         appState.handle(.transcriptionCompleted(transcript))
 
-        // Polish stage is M6; pass through unchanged. polishFailed routes
-        // .polishing -> .pasting with the raw transcript per the state machine.
-        appState.handle(.polishFailed)
+        // Optional local (offline) polish. Fail-open: any failure or an empty
+        // result falls back to the raw transcript. .polishCompleted /
+        // .polishFailed both route .polishing -> .pasting per the state machine.
+        var finalText = transcript
+        if let polisher = localPolisherProvider() {
+            do {
+                let polished = try await polisher.polish(transcript)
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                if polished.isEmpty {
+                    appState.handle(.polishFailed)
+                } else {
+                    finalText = polished
+                    appState.handle(.polishCompleted(polished))
+                }
+            } catch {
+                logger.error("Local polish failed: \(error.localizedDescription, privacy: .public)")
+                appState.handle(.polishFailed)
+            }
+        } else {
+            appState.handle(.polishFailed)
+        }
 
-        let pasted = await pasteService.paste(transcript)
+        let pasted = await pasteService.paste(finalText)
         appState.handle(pasted ? .pasteCompleted : .pasteFailed)
         recordOutcome(pasted ? .completed : .pasteFailed,
                       audio: audio, releasedAt: releasedAt, transcriptAt: transcriptAt,
-                      pastedAt: Date(), transcriptCharacters: transcript.count,
+                      pastedAt: Date(), transcriptCharacters: finalText.count,
                       hitMaxDuration: hitMaxDuration)
     }
 

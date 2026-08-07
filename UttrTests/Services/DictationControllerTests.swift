@@ -180,6 +180,34 @@ struct DictationControllerTests {
         #expect(h.appState.pasteFailedText == "kept text")
     }
 
+    @Test("local polish is applied to the transcript before pasting")
+    func localPolishApplied() async {
+        let appState = AppState()
+        let recorder = MockAudioRecorder()
+        let factory = MockEngineFactory()
+        let coordinator = TranscriptionCoordinator(
+            factory: factory,
+            availability: MockSystemSpeechAvailability(isSystemSpeechAvailable: false))
+        coordinator.configure(selection: .whisperKit, whisperModel: "small.en")
+        let pasteService = MockPasteService()
+        let clock = MockDictationClock()
+        let controller = DictationController(
+            appState: appState, recorder: recorder, coordinator: coordinator,
+            pasteService: pasteService, clock: clock,
+            localPolisherProvider: { RuleBasedTextPolisher() })
+        factory.whisperEngine.transcriptToReturn = "um hello hello world"
+
+        appState.handle(.hotkeyDown)
+        controller.recordingStarted()
+        await waitUntil { recorder.startCount == 1 }
+        appState.handle(.hotkeyUp)
+        controller.recordingEnded()
+
+        await waitUntil { appState.dictationState == .idle && !pasteService.pastedTexts.isEmpty }
+        #expect(pasteService.pastedTexts == ["Hello world"])
+        #expect(appState.lastTranscript == "Hello world")
+    }
+
     // MARK: - Max duration (spec §8: stop at 120 s, transcribe what we have)
 
     @Test("max duration fires, stops recording, and transcribes")

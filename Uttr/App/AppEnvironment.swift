@@ -9,6 +9,7 @@ final class AppEnvironment {
     let configStore = ConfigurationStore()
     let permissionService: PermissionChecking = RealPermissionService()
     let hotkeyService: HotkeyServiceProtocol = EventTapHotkeyService()
+    let loginItemService: LoginItemManaging = SMAppServiceLoginItem()
     let transcriptionCoordinator = TranscriptionCoordinator()
     let dictationMetrics = DictationMetrics()
     private(set) var dictationController: DictationController!
@@ -21,10 +22,45 @@ final class AppEnvironment {
             recorder: AVAudioEngineRecorder(),
             coordinator: transcriptionCoordinator,
             pasteService: PasteService(),
-            metrics: dictationMetrics
+            metrics: dictationMetrics,
+            localPolisherProvider: { [configStore] in
+                let config = configStore.settings.localPolish
+                guard config.enabled else { return nil }
+                return RuleBasedTextPolisher(options: .init(config: config))
+            }
         )
         configureTranscription()
         startHotkeyService()
+        reconcileLoginItem()
+    }
+
+    /// Applies the user's start-at-login choice to the system and persists it.
+    /// Returns false when the system refused the change (setting is not saved
+    /// so the toggle snaps back to reality).
+    @discardableResult
+    func applyStartAtLogin(_ enabled: Bool) -> Bool {
+        do {
+            try loginItemService.setEnabled(enabled)
+        } catch {
+            logger.error("Login item change failed: \(error.localizedDescription, privacy: .public)")
+            return false
+        }
+        try? configStore.update { $0.startAtLogin = enabled }
+        return true
+    }
+
+    /// At launch, bring the system registration in line with the stored
+    /// setting. Registration can drift: rebuilds/moves can drop it, or the
+    /// user may have removed the login item in System Settings.
+    private func reconcileLoginItem() {
+        let wanted = configStore.settings.startAtLogin
+        guard loginItemService.isEnabled != wanted else { return }
+        do {
+            try loginItemService.setEnabled(wanted)
+            logger.info("Reconciled login item to \(wanted, privacy: .public)")
+        } catch {
+            logger.error("Login item reconcile failed: \(error.localizedDescription, privacy: .public)")
+        }
     }
 
     /// (Re)applies engine/model selection. Called at launch and whenever the

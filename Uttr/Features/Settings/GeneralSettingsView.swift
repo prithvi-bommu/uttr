@@ -6,9 +6,13 @@ struct GeneralSettingsView: View {
     let appState: AppState
     let onBeginCapture: () -> Void
     let onCancelCapture: () -> Void
+    /// Applies the login-item change to the system; returns false on refusal.
+    /// Nil (previews/tests) falls back to persisting the setting only.
+    var onStartAtLoginChanged: ((Bool) -> Bool)? = nil
     var fnUsage: FnUsageChecking = RealFnUsageService()
 
     @State private var fnGlobeAction: FnGlobeAction = .unknown
+    @State private var loginItemError: String?
 
     var body: some View {
         Form {
@@ -16,9 +20,22 @@ struct GeneralSettingsView: View {
                 Toggle("Start Uttr at login", isOn: Binding(
                     get: { store.settings.startAtLogin },
                     set: { newValue in
-                        try? store.update { $0.startAtLogin = newValue }
+                        if let onStartAtLoginChanged {
+                            if onStartAtLoginChanged(newValue) {
+                                loginItemError = nil
+                            } else {
+                                loginItemError = "macOS refused the change. Check System Settings → General → Login Items."
+                            }
+                        } else {
+                            try? store.update { $0.startAtLogin = newValue }
+                        }
                     }
                 ))
+                if let loginItemError {
+                    Text(loginItemError)
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                }
             }
 
             Section("Dictation Shortcut") {
