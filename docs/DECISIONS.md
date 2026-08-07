@@ -156,3 +156,17 @@ Format defined in `UTTR_MASTER_AGENT_OPERATING_PROMPT.md`.
 - Decision: Option 2 for all pre-M7 builds (`revealAppForManualAdd()`, wired into onboarding and Permissions settings). Option 3 (Developer ID + notarization, M7) is the root-cause fix that makes registration automatic.
 - Consequences: The Input Monitoring onboarding step documents the drag-in path; the repair flow (ADR-context in `repairInputMonitoring()`) remains for genuinely stale-record cases but cannot force registration for ad-hoc builds.
 - Validation required: after M7 signing, re-verify that `CGRequestListenEventAccess()` prompts and auto-registers, then simplify the step.
+
+## ADR-010: Self-signed code-signing cert for local builds — Developer ID (M7) migration is one env var away
+
+- Date: 2026-08-06
+- Status: Accepted
+- Context: TCC keys every permission grant (Microphone, Input Monitoring, Accessibility) — and `SMAppService` login-item registration — to the app's code-signing designated requirement. Ad-hoc signing (`codesign --sign -`) degrades that requirement to the binary's cdhash, which changes on every rebuild, so macOS treats each new DMG as a different app and wipes all grants (the daily "re-add permissions" loop; see ADR-009 for the related Input Monitoring registration failure).
+- Decision: Interim fix now, real fix at M7:
+  1. **Now**: a free self-signed certificate, **"Uttr Dev Signing"** (10-year validity, codeSigning EKU, trusted for code signing in the login keychain). Signing with it anchors the designated requirement to the certificate leaf (`certificate leaf = H"68e2a535…"`), which is stable across rebuilds — grants persist on the developer machine. Created via `openssl req` + `openssl pkcs12 -export -legacy` (OpenSSL 3's default PKCS12 format is not importable by macOS `security import`) + `security add-trusted-cert -p codeSign`.
+  2. **M7**: an Apple **Developer ID Application** certificate + notarization (`Scripts/notarize.sh`, already written) for external distribution and automatic Input Monitoring registration.
+- Migration path (deliberately zero-effort): `Scripts/release-dmg.sh` resolves the signing identity in priority order — `$UTTR_SIGN_IDENTITY` override → any "Developer ID Application" identity in the keychain → "Uttr Dev Signing" → ad-hoc fallback. **Installing the Developer ID cert is the entire migration**; the next `release-dmg.sh` run picks it up automatically. No script edits, no flag changes.
+- Consequences:
+  - One-time cost per identity switch (ad-hoc → self-signed now; self-signed → Developer ID at M7): macOS sees a "different app" once, so Mic/Input Monitoring/Accessibility must be re-granted one final time and login-item registration re-applied. After that, grants survive rebuilds.
+  - The self-signed cert helps only on Macs that trust it — external recipients still need right-click → Open until M7 notarization.
+  - After M7, re-verify ADR-009 (`CGRequestListenEventAccess()` should then prompt and auto-register) and simplify that onboarding step.

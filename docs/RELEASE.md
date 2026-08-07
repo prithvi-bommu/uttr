@@ -1,6 +1,29 @@
 # Release Runbook
 
-## Prerequisites
+## Code Signing (read first)
+
+`Scripts/release-dmg.sh` auto-detects the signing identity, in priority order:
+
+| Priority | Identity | When |
+|---|---|---|
+| 1 | `$UTTR_SIGN_IDENTITY` env var | Explicit override |
+| 2 | `Developer ID Application: …` | **M7 onward** — picked up automatically once the cert is in the keychain |
+| 3 | `Uttr Dev Signing` (self-signed) | Interim local builds — keeps TCC grants stable across rebuilds on the dev machine (ADR-010) |
+| 4 | Ad-hoc (`-`) | Fallback — permission grants reset on every rebuild |
+
+**Switching to Developer ID when it arrives (M7): install the certificate in
+the keychain — that is the entire migration.** The next `release-dmg.sh` run
+signs with it automatically. One-time cost after any identity switch: macOS
+sees a "different app" once, so re-grant Mic / Input Monitoring /
+Accessibility and re-apply the launch-at-login toggle a single time.
+
+Recreating the self-signed cert on a new machine (ADR-010): create a
+code-signing cert named `Uttr Dev Signing` via Keychain Access → Certificate
+Assistant (or openssl with `-legacy` PKCS12 export), import into the login
+keychain, then `security add-trusted-cert -p codeSign -k
+~/Library/Keychains/login.keychain-db cert.pem`.
+
+## Prerequisites (full external release, M7)
 
 - Apple Developer ID Application certificate installed
 - Notarization credentials stored in Keychain profile `uttr-notarize`
