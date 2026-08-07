@@ -14,6 +14,13 @@ protocol AudioRecording: Sendable {
     func stopRecording() async -> CapturedAudio
     /// Discards any in-flight capture without producing audio.
     func cancelRecording() async
+    /// Instantaneous input level (RMS, 0...~1) of the most recent audio
+    /// buffer. 0 when not recording. Drives the recording indicator waveform.
+    func currentAudioLevel() async -> Float
+}
+
+extension AudioRecording {
+    func currentAudioLevel() async -> Float { 0 }
 }
 
 /// Validation policy from spec §8, refined for accuracy:
@@ -79,6 +86,7 @@ private final class CaptureState: @unchecked Sendable {
     private let converter: AVAudioConverter
     private let targetFormat: AVAudioFormat
     private var samples: [Float] = []
+    private var latestLevel: Float = 0
     private let logger = Logger(subsystem: "com.uttr.app", category: "audio")
 
     init(converter: AVAudioConverter, targetFormat: AVAudioFormat) {
@@ -109,9 +117,20 @@ private final class CaptureState: @unchecked Sendable {
             return
         }
         guard let channel = out.floatChannelData?[0] else { return }
+        // Cheap per-buffer level for the recording indicator: one vDSP call,
+        // no allocation — safe on the render thread.
+        var rms: Float = 0
+        vDSP_rmsqv(channel, 1, &rms, vDSP_Length(out.frameLength))
         lock.lock()
         samples.append(contentsOf: UnsafeBufferPointer(start: channel, count: Int(out.frameLength)))
+        latestLevel = rms
         lock.unlock()
+    }
+
+    func currentLevel() -> Float {
+        lock.lock()
+        defer { lock.unlock() }
+        return latestLevel
     }
 
     func drain() -> [Float] {
@@ -189,6 +208,10 @@ actor AVAudioEngineRecorder: AudioRecording {
     func cancelRecording() async {
         _ = tearDown()
         logger.info("Recording cancelled")
+    }
+
+    func currentAudioLevel() async -> Float {
+        captureState?.currentLevel() ?? 0
     }
 
     // MARK: - Private

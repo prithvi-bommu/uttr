@@ -12,14 +12,17 @@ final class AppEnvironment {
     let loginItemService: LoginItemManaging = SMAppServiceLoginItem()
     let transcriptionCoordinator = TranscriptionCoordinator()
     let dictationMetrics = DictationMetrics()
+    private let recorder = AVAudioEngineRecorder()
+    private(set) var recordingIndicator: RecordingIndicatorController!
     private(set) var dictationController: DictationController!
     private let logger = Logger(subsystem: "com.uttr.app", category: "app")
 
     private init() {
         configStore.load()
+        recordingIndicator = RecordingIndicatorController(recorder: recorder)
         dictationController = DictationController(
             appState: appState,
-            recorder: AVAudioEngineRecorder(),
+            recorder: recorder,
             coordinator: transcriptionCoordinator,
             pasteService: PasteService(),
             metrics: dictationMetrics,
@@ -32,6 +35,9 @@ final class AppEnvironment {
         configureTranscription()
         startHotkeyService()
         reconcileLoginItem()
+        appState.onStateChange = { [weak self] state in
+            self?.recordingIndicator.stateChanged(state)
+        }
     }
 
     /// Applies the user's start-at-login choice to the system and persists it.

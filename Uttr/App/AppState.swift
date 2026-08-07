@@ -52,6 +52,10 @@ final class AppState {
     private(set) var lastTranscript: String?
     private(set) var pasteFailedText: String?
 
+    /// Invoked after every accepted transition with the new state.
+    /// Drives UI that lives outside the SwiftUI tree (recording indicator).
+    @ObservationIgnored var onStateChange: ((DictationState) -> Void)?
+
     @ObservationIgnored
     private let logger = Logger(subsystem: "com.uttr.app", category: "state")
 
@@ -69,6 +73,7 @@ final class AppState {
         dictationState = next
         logger.info("Transition: \(String(describing: from)) -> \(String(describing: next))")
         DebugFileLog.append("state", "Transition: \(String(describing: from)) -> \(String(describing: next)) (event: \(event.debugName))")
+        onStateChange?(next)
         return true
     }
 
