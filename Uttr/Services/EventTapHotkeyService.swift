@@ -5,6 +5,8 @@ import OSLog
 enum HotkeyEvent: Equatable, Sendable {
     case hotkeyDown
     case hotkeyUp
+    case aiHotkeyDown
+    case aiHotkeyUp
     case escapePressed
     case shortcutCaptured(keyCode: UInt16, modifiers: Set<ModifierKey>)
     case shortcutCaptureRejected(reason: String)
@@ -14,6 +16,8 @@ protocol HotkeyServiceProtocol: Sendable {
     func start(hotkey: Hotkey, callback: @escaping @Sendable (HotkeyEvent) -> Void)
     func stop()
     func updateHotkey(_ hotkey: Hotkey)
+    /// Sets or clears the secondary AI-content hotkey (nil disables it).
+    func updateAIHotkey(_ hotkey: Hotkey?)
     func beginCapture()
     func cancelCapture()
 }
@@ -72,6 +76,12 @@ final class EventTapHotkeyService: @unchecked Sendable, HotkeyServiceProtocol {
     func updateHotkey(_ hotkey: Hotkey) {
         lock.withLock {
             processor.updateHotkey(hotkey)
+        }
+    }
+
+    func updateAIHotkey(_ hotkey: Hotkey?) {
+        lock.withLock {
+            processor.updateAIHotkey(hotkey)
         }
     }
 

@@ -178,6 +178,10 @@ final class RecordingIndicatorController {
         case .polishing:
             model.phase = .working(label: "Polishing…")
             show()
+        case .prompting:
+            stopLevelPolling()
+            model.phase = .working(label: "Asking AI…")
+            show()
         case .pasting:
             model.phase = .working(label: "Pasting…")
             show()

@@ -30,7 +30,8 @@ struct UttrApp: App {
                 onCancelCapture: { env.cancelShortcutCapture() },
                 transcriptionCoordinator: env.transcriptionCoordinator,
                 onTranscriptionChanged: { env.configureTranscription() },
-                onStartAtLoginChanged: { env.applyStartAtLogin($0) }
+                onStartAtLoginChanged: { env.applyStartAtLogin($0) },
+                onAIConfigChanged: { env.applyAIHotkey() }
             )
         }
 

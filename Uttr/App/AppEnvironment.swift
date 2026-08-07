@@ -30,6 +30,11 @@ final class AppEnvironment {
                 let config = configStore.settings.localPolish
                 guard config.enabled else { return nil }
                 return RuleBasedTextPolisher(options: .init(config: config))
+            },
+            aiProvider: { [configStore] in
+                let config = configStore.settings.aiContent
+                guard config.enabled else { return nil }
+                return AIContentProviderFactory.make(config: config)
             }
         )
         configureTranscription()
@@ -90,6 +95,7 @@ final class AppEnvironment {
                 self?.handleHotkeyEvent(event)
             }
         }
+        applyAIHotkey()
 
         // The tap installs asynchronously and fails silently when Input
         // Monitoring is missing (every rebuild invalidates the grant,
@@ -116,10 +122,21 @@ final class AppEnvironment {
                 return
             }
             if appState.handle(.hotkeyDown) {
-                dictationController.recordingStarted()
+                dictationController.recordingStarted(mode: .dictation)
             }
 
-        case .hotkeyUp:
+        case .aiHotkeyDown:
+            guard configStore.settings.aiContent.enabled else { return }
+            let missingPermission = checkPermissions()
+            if let blocker = missingPermission {
+                appState.handle(.permissionBlocked(blocker))
+                return
+            }
+            if appState.handle(.hotkeyDown) {
+                dictationController.recordingStarted(mode: .aiContent)
+            }
+
+        case .hotkeyUp, .aiHotkeyUp:
             if appState.handle(.hotkeyUp) {
                 dictationController.recordingEnded()
             }
@@ -141,6 +158,20 @@ final class AppEnvironment {
         case .shortcutCaptureRejected:
             appState.handle(.cancelHotkeyCapture)
         }
+    }
+
+    /// Registers or clears the AI-content hotkey from current settings.
+    /// Called at startup and whenever the AI Content settings change.
+    func applyAIHotkey() {
+        let config = configStore.settings.aiContent
+        guard config.enabled else {
+            hotkeyService.updateAIHotkey(nil)
+            return
+        }
+        hotkeyService.updateAIHotkey(Hotkey(
+            keyCode: config.hotkey.keyCode,
+            modifiers: Set(config.hotkey.modifiers)
+        ))
     }
 
     func checkPermissions() -> PermissionBlocker? {
