@@ -29,7 +29,8 @@ struct UttrApp: App {
                 onBeginCapture: { env.beginShortcutCapture() },
                 onCancelCapture: { env.cancelShortcutCapture() },
                 transcriptionCoordinator: env.transcriptionCoordinator,
-                onTranscriptionChanged: { env.configureTranscription() }
+                onTranscriptionChanged: { env.configureTranscription() },
+                onStartAtLoginChanged: { env.applyStartAtLogin($0) }
             )
         }
 
