@@ -22,7 +22,10 @@ struct MenuBarLabel: View {
                 // before we ask it to open.
                 DispatchQueue.main.async {
                     openWindow(id: "onboarding")
-                    NSApplication.shared.activate()
+                    // Cooperative activation ignores plain activate() from
+                    // accessory apps — the setup window opened buried under
+                    // other apps' windows. Force it to the front.
+                    WindowFocus.focusWindow(sceneID: "onboarding")
                 }
             }
     }

@@ -38,22 +38,22 @@ struct MenuBarView: View {
 
         Divider()
 
-        SettingsLink {
-            Text("Settings…")
+        Button("Settings…") {
+            SettingsOpener.openAndFocus()
         }
 
         Button("Check permissions…") {
-            SettingsLink.showSettings()
+            SettingsOpener.openAndFocus()
         }
 
         Button("View privacy details…") {
-            SettingsLink.showSettings()
+            SettingsOpener.openAndFocus()
         }
 
         #if DEBUG
         Button("Diagnostics…") {
             openWindow(id: "diagnostics")
-            NSApplication.shared.activate()
+            WindowFocus.focusWindow(sceneID: "diagnostics")
         }
         #endif
 
@@ -117,10 +117,13 @@ extension PermissionBlocker {
     }
 }
 
-private extension SettingsLink where Label == Text {
-    @MainActor
-    static func showSettings() {
+/// Opens the SwiftUI Settings scene and brings it to the front. The plain
+/// `SettingsLink`/`showSettingsWindow:` path opens the window BEHIND other
+/// apps because cooperative activation ignores accessory-app activation.
+@MainActor
+enum SettingsOpener {
+    static func openAndFocus() {
         NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
-        NSApplication.shared.activate()
+        WindowFocus.focusSettingsWindow()
     }
 }
