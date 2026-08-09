@@ -24,6 +24,14 @@ final class RecordingIndicatorModel {
 /// with a status label while transcribing/pasting. Design follows the common
 /// macOS dictation-pill pattern; purely decorative, never accepts clicks.
 struct RecordingIndicatorView: View {
+    /// Fixed window/content size. The panel is deliberately NOT sized from
+    /// SwiftUI content: content-driven window sizing (`preferredContentSize`)
+    /// plus safe-area invalidation formed a constraint-update cycle that the
+    /// macOS 26 SDK's new loop detector aborts on
+    /// ("more Update Constraints in Window passes than there are views").
+    /// Everything the pill displays fits comfortably in this envelope.
+    static let windowSize = NSSize(width: 230, height: 44)
+
     let model: RecordingIndicatorModel
     @State private var pulsing = false
 
@@ -55,6 +63,12 @@ struct RecordingIndicatorView: View {
         .background(Capsule().fill(Color.black.opacity(0.78)))
         .overlay(Capsule().stroke(Color.white.opacity(0.16), lineWidth: 0.5))
         .shadow(color: .black.opacity(0.25), radius: 4, y: 2)
+        // Pin the hosting view's ideal size so it can never disagree with
+        // the fixed window frame (see windowSize above).
+        .frame(
+            width: Self.windowSize.width,
+            height: Self.windowSize.height
+        )
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Uttr recording indicator")
         .accessibilityValue(model.phase == .recording ? "Listening" : "Working")
@@ -99,7 +113,7 @@ struct WaveformBars: View {
 final class RecordingIndicatorPanel: NSPanel {
     init(model: RecordingIndicatorModel) {
         super.init(
-            contentRect: NSRect(x: 0, y: 0, width: 180, height: 34),
+            contentRect: NSRect(origin: .zero, size: RecordingIndicatorView.windowSize),
             styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered,
             defer: false
@@ -115,23 +129,25 @@ final class RecordingIndicatorPanel: NSPanel {
         isReleasedWhenClosed = false
 
         let hosting = NSHostingView(rootView: RecordingIndicatorView(model: model))
-        hosting.sizingOptions = [.preferredContentSize]
+        // Fixed-size window, fixed-size content — the hosting view must never
+        // drive window sizing or safe-area updates. Content-driven sizing
+        // (`sizingOptions = [.preferredContentSize]`) combined with safe-area
+        // invalidation on this borderless panel created a constraint-update
+        // cycle that macOS 26's stricter AppKit aborts with an uncaught
+        // NSGenericException (verified on macOS 26.5.2 / Xcode 26.6 build).
+        hosting.sizingOptions = []
+        hosting.safeAreaRegions = []
+        hosting.frame = NSRect(origin: .zero, size: RecordingIndicatorView.windowSize)
+        hosting.autoresizingMask = [.width, .height]
         contentView = hosting
     }
 
     /// Centers the panel near the bottom of the screen the cursor is on —
-    /// where the user's attention is when they trigger dictation.
+    /// where the user's attention is when they trigger dictation. Pure frame
+    /// math on the fixed size; deliberately no layout passes here.
     func positionOnActiveScreen() {
         let screen = screenUnderMouse()
-        // NSHostingView reports fittingSize (0,0) until its SwiftUI subtree
-        // has laid out at least once; force that first, and keep a fallback
-        // so the panel can never collapse to an invisible zero-size window.
-        contentView?.layoutSubtreeIfNeeded()
-        var size = contentView?.fittingSize ?? .zero
-        if size.width < 20 || size.height < 20 {
-            size = NSSize(width: 190, height: 34)
-        }
-        setContentSize(size)
+        let size = RecordingIndicatorView.windowSize
         let visible = screen.visibleFrame
         let x = visible.midX - size.width / 2
         let y = visible.minY + 84 // above the Dock, out of the caret's way
