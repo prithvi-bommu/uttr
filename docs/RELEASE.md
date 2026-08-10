@@ -1,5 +1,22 @@
 # Release Runbook
 
+## Automated releases (GitHub Actions)
+
+`.github/workflows/release.yml` publishes DMGs automatically:
+
+- **Every merge to `main`** rebuilds the DMG and updates the rolling
+  **"latest"** prerelease — the newest build is always downloadable from
+  the repo's Releases page (public downloads require the repo to be public).
+- **Pushing a version tag** (`git tag v1.0.0 && git push origin v1.0.0`)
+  creates a permanent versioned release with generated notes.
+
+CI builds are **ad-hoc signed**: downloaders must right-click → Open on
+first launch. When the Developer ID certificate lands (M7), add the cert
+and notarization secrets and extend the workflow's Sign step; the build
+and publish steps stay unchanged.
+
+Each release ships the `.dmg` plus a `.sha256` checksum file.
+
 ## Code Signing (read first)
 
 `Scripts/release-dmg.sh` auto-detects the signing identity, in priority order:
