@@ -166,6 +166,47 @@ struct AIProviderParsingTests {
     }
 }
 
+// MARK: - URL security
+
+@Suite("AIContent URL security")
+struct AIURLSecurityTests {
+
+    @Test("https URL is allowed")
+    func httpsAllowed() {
+        #expect(OpenAICompatibleProvider.isSecureOrLocal(URL(string: "https://api.openai.com/v1")!))
+    }
+
+    @Test("http localhost is allowed")
+    func httpLocalhostAllowed() {
+        #expect(OpenAICompatibleProvider.isSecureOrLocal(URL(string: "http://localhost:11434/v1")!))
+    }
+
+    @Test("http 127.0.0.1 is allowed")
+    func httpLoopbackAllowed() {
+        #expect(OpenAICompatibleProvider.isSecureOrLocal(URL(string: "http://127.0.0.1:8080/v1")!))
+    }
+
+    @Test("http ::1 is allowed")
+    func httpIPv6LoopbackAllowed() {
+        #expect(OpenAICompatibleProvider.isSecureOrLocal(URL(string: "http://[::1]:8080/v1")!))
+    }
+
+    @Test("http subdomain of localhost is allowed")
+    func httpSubdomainLocalhost() {
+        #expect(OpenAICompatibleProvider.isSecureOrLocal(URL(string: "http://ollama.localhost:11434")!))
+    }
+
+    @Test("plain http to remote host is rejected")
+    func httpRemoteRejected() {
+        #expect(!OpenAICompatibleProvider.isSecureOrLocal(URL(string: "http://api.example.com/v1")!))
+    }
+
+    @Test("plain http to IP is rejected")
+    func httpRemoteIPRejected() {
+        #expect(!OpenAICompatibleProvider.isSecureOrLocal(URL(string: "http://192.168.1.100:8080")!))
+    }
+}
+
 // MARK: - Controller AI pipeline
 
 @Suite("DictationController AI mode")

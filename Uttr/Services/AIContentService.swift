@@ -63,6 +63,10 @@ struct OpenAICompatibleProvider: AIContentGenerating {
         guard !base.isEmpty, let url = URL(string: "\(base)/chat/completions") else {
             throw AIContentError.notConfigured("invalid base URL")
         }
+        guard Self.isSecureOrLocal(url) else {
+            throw AIContentError.notConfigured(
+                "insecure URL — use https:// or localhost/127.0.0.1 for local servers")
+        }
 
         var request = URLRequest(url: url, timeoutInterval: timeout)
         request.httpMethod = "POST"
@@ -99,6 +103,13 @@ struct OpenAICompatibleProvider: AIContentGenerating {
         let text = content.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { throw AIContentError.emptyResponse }
         return text
+    }
+
+    static func isSecureOrLocal(_ url: URL) -> Bool {
+        if url.scheme?.lowercased() == "https" { return true }
+        guard let host = url.host?.lowercased() else { return false }
+        return host == "localhost" || host == "127.0.0.1" || host == "::1"
+            || host.hasSuffix(".localhost")
     }
 
     static func errorDetail(from data: Data) -> String {

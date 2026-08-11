@@ -7,6 +7,7 @@ struct MenuBarView: View {
     var metrics: DictationMetrics?
     var permissionService: PermissionChecking?
     @Environment(\.openWindow) private var openWindow
+    @Environment(\.openSettings) private var openSettings
 
     var body: some View {
         Text(statusText)
@@ -39,15 +40,15 @@ struct MenuBarView: View {
         Divider()
 
         Button("Settings…") {
-            SettingsOpener.openAndFocus()
+            openSettingsAndFocus()
         }
 
         Button("Check permissions…") {
-            SettingsOpener.openAndFocus()
+            openSettingsAndFocus()
         }
 
         Button("View privacy details…") {
-            SettingsOpener.openAndFocus()
+            openSettingsAndFocus()
         }
 
         #if DEBUG
@@ -97,6 +98,11 @@ struct MenuBarView: View {
         return String(format: "Last dictation: %.1fs → %d ms", record.audioDurationSeconds, ms)
     }
 
+    private func openSettingsAndFocus() {
+        openSettings()
+        WindowFocus.focusSettingsWindow()
+    }
+
     private var hotkeyLabel: String {
         let hotkey = configStore.settings.hotkey
         let h = Hotkey(
@@ -117,13 +123,3 @@ extension PermissionBlocker {
     }
 }
 
-/// Opens the SwiftUI Settings scene and brings it to the front. The plain
-/// `SettingsLink`/`showSettingsWindow:` path opens the window BEHIND other
-/// apps because cooperative activation ignores accessory-app activation.
-@MainActor
-enum SettingsOpener {
-    static func openAndFocus() {
-        NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
-        WindowFocus.focusSettingsWindow()
-    }
-}
