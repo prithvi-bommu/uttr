@@ -59,12 +59,10 @@ struct MenuBarView: View {
             .disabled(!updater.canCheckForUpdates)
         }
 
-        #if DEBUG
         Button("Diagnostics…") {
             openWindow(id: "diagnostics")
             WindowFocus.focusWindow(sceneID: "diagnostics")
         }
-        #endif
 
         Divider()
 

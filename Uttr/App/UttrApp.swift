@@ -37,12 +37,10 @@ struct UttrApp: App {
             )
         }
 
-        #if DEBUG
         Window("Uttr Diagnostics", id: "diagnostics") {
             DiagnosticsView(metrics: env.dictationMetrics)
         }
         .windowResizability(.contentSize)
-        #endif
 
         Window("Welcome to Uttr", id: "onboarding") {
             OnboardingView(
