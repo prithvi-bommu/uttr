@@ -6,12 +6,12 @@ A menu-bar-only, hold-to-talk, local-first dictation app for macOS.
 
 1. Build the DMG: `./Scripts/release-dmg.sh` → `build/Uttr-<version>.dmg` (SHA-256 checksum written alongside).
 2. Open the DMG and drag **Uttr** to **Applications**.
-3. First launch (pre-notarized builds): macOS Gatekeeper will warn that the app can't be verified. Right-click **Uttr.app** → **Open** → **Open**, or run `xattr -d com.apple.quarantine /Applications/Uttr.app`. This goes away once releases are Developer-ID signed and notarized (planned for v1.0).
+3. Official releases are Developer ID signed and notarized. macOS should open them normally.
 4. On first launch, Uttr's setup walks you through the three required permissions (Microphone, Input Monitoring, Accessibility). Input Monitoring and Accessibility take effect only after you quit and reopen Uttr — the setup says so at the right steps.
 
 ## Updates
 
-Uttr can check for updates from the menu bar ("Check for Updates…") or from Settings → General → Updates. Automatic checking is off by default. Until the app is Developer ID signed, updating may require you to re-grant Microphone, Input Monitoring, and Accessibility permissions afterward.
+Uttr checks for updates automatically and can also be checked manually from the menu bar or Settings → General → Updates. Official releases retain a stable Developer ID identity, so normal updates preserve macOS permission grants.
 
 ## Requirements
 
@@ -30,7 +30,7 @@ Uttr can check for updates from the menu bar ("Check for Updates…") or from Se
 
 Download the latest signed and notarized DMG from [Releases](https://github.com/prithvibommu/uttr/releases). Drag `Uttr.app` to your Applications folder.
 
-### First launch (pre-notarized dev builds)
+### First launch (development builds)
 
 If macOS shows a Gatekeeper warning for unsigned development builds, right-click the app and select Open, then confirm. This is not required for notarized release builds.
 
@@ -97,14 +97,14 @@ Run the tests:
 ./Scripts/release-dmg.sh
 ```
 
-One command: builds Release (arm64), ad-hoc signs the app, packages
+One command: builds Release (arm64), signs with your available local identity, packages
 `build/Uttr-<version>.dmg` with a SHA-256 checksum, and opens the DMG window
 for the drag-to-Applications install. The first build downloads Swift package
 dependencies, so it needs internet access.
 
-Note: until releases are Developer-ID signed and notarized, the DMG is ad-hoc
-signed — recipients right-click → Open once (see "Install from DMG" above),
-and Input Monitoring requires the drag-in add during setup.
+Only the GitHub release workflow produces the official Developer ID-signed and
+notarized update channel. A locally built DMG is for development and must not
+be published as a Sparkle update.
 
 ## License
 

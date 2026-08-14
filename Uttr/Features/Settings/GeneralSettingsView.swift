@@ -58,17 +58,6 @@ struct GeneralSettingsView: View {
                             .foregroundStyle(.secondary)
                             .font(.caption)
                     }
-
-                    // TODO(M7): Remove this warning once Developer ID signing lands (ADR-011).
-                    HStack(alignment: .top, spacing: 8) {
-                        Image(systemName: "exclamationmark.triangle.fill")
-                            .foregroundStyle(.orange)
-                        Text("Updating replaces the app, and unsigned builds lose their macOS permission grants. After an update you may need to re-grant Microphone, Input Monitoring, and Accessibility access.")
-                            .font(.caption)
-                    }
-                    .padding(8)
-                    .background(.orange.opacity(0.1))
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
                 }
             }
 

@@ -32,13 +32,11 @@
 	<string>https://prithvi-bommu.github.io/uttr/appcast.xml</string>
 	<key>SUPublicEDKey</key>
 	<string>yrUgPEWDOQaksy7aHuCf3kyQD3WR69S2eX1++khk8Ao=</string>
-	<!-- SUEnableAutomaticChecks is false by default: ad-hoc signing causes TCC
-	     permission loss on every update (ADR-011). Flip to true after M7. -->
 	<key>SUEnableAutomaticChecks</key>
-	<false/>
+	<true/>
 	<key>SUScheduledCheckInterval</key>
 	<integer>86400</integer>
 	<key>SUAllowsAutomaticUpdates</key>
-	<false/>
+	<true/>
 </dict>
 </plist>

@@ -1,9 +1,8 @@
 import Foundation
 import AppKit
 
-// Sparkle auto-updates ship with automatic checks disabled until Developer ID
-// signing (M7). See ADR-011 for the full rationale: ad-hoc signing causes TCC
-// permission loss on every update, so updates must be a deliberate user action.
+// Official releases are Developer ID signed and notarized. Sparkle can retain
+// the app's stable identity across updates; see ADR-011 for release safeguards.
 @MainActor
 protocol UpdaterServicing: AnyObject {
     var automaticallyChecksForUpdates: Bool { get set }
