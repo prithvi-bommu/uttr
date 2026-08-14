@@ -6,12 +6,12 @@ A menu-bar-only, hold-to-talk, local-first dictation app for macOS.
 
 1. Build the DMG: `./Scripts/release-dmg.sh` → `build/Uttr-<version>.dmg` (SHA-256 checksum written alongside).
 2. Open the DMG and drag **Uttr** to **Applications**.
-3. Official releases are Developer ID signed and notarized. macOS should open them normally.
+3. Official releases use a stable Uttr signing certificate. On a new Mac, macOS may show a Gatekeeper warning once; right-click **Uttr.app** → **Open** → **Open**.
 4. On first launch, Uttr's setup walks you through the three required permissions (Microphone, Input Monitoring, Accessibility). Input Monitoring and Accessibility take effect only after you quit and reopen Uttr — the setup says so at the right steps.
 
 ## Updates
 
-Uttr checks for updates automatically and can also be checked manually from the menu bar or Settings → General → Updates. Official releases retain a stable Developer ID identity, so normal updates preserve macOS permission grants.
+Uttr checks for updates automatically and can also be checked manually from the menu bar or Settings → General → Updates. Official releases retain a stable signing identity, so normal updates preserve macOS permission grants after the initial Gatekeeper approval.
 
 ## Requirements
 
@@ -29,6 +29,8 @@ Uttr checks for updates automatically and can also be checked manually from the 
 ## Install
 
 Download the latest signed and notarized DMG from [Releases](https://github.com/prithvibommu/uttr/releases). Drag `Uttr.app` to your Applications folder.
+
+Official releases are stable-signed rather than notarized. Approve the app once with right-click → Open on each new Mac.
 
 ### First launch (development builds)
 
@@ -102,9 +104,9 @@ One command: builds Release (arm64), signs with your available local identity, p
 for the drag-to-Applications install. The first build downloads Swift package
 dependencies, so it needs internet access.
 
-Only the GitHub release workflow produces the official Developer ID-signed and
-notarized update channel. A locally built DMG is for development and must not
-be published as a Sparkle update.
+Only the GitHub release workflow produces the official stable-signed update
+channel. A locally built DMG is for development and must not be published as a
+Sparkle update.
 
 ## License
 

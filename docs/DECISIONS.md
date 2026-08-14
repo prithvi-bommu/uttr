@@ -173,11 +173,11 @@ Format defined in `UTTR_MASTER_AGENT_OPERATING_PROMPT.md`.
 
 ---
 
-## ADR-011: Sparkle updates require Developer ID signing, notarization, and archive-key verification
+## ADR-011: Sparkle updates require stable release signing and archive-key verification
 
 - Date: 2026-08-14
 - Status: Accepted
-- Context: Uttr uses Sparkle (v2.9.5) to distribute on-air updates to installed instances. The initial release process generated a valid EdDSA appcast signature, but published ad-hoc-signed apps. Ad-hoc signing has no stable designated requirement, so Sparkle/macOS cannot safely validate a replacement app across builds.
+- Context: Uttr uses Sparkle (v2.9.5) to distribute on-air updates to installed instances. The initial release process generated a valid EdDSA appcast signature, but published ad-hoc-signed apps. Ad-hoc signing has no stable designated requirement, so Sparkle/macOS cannot reliably validate a replacement app across builds.
 - Evidence:
   - Per ADR-010, macOS keys every TCC grant (Microphone, Input Monitoring, Accessibility) and `SMAppService` login-item registration to the app's code-signing designated requirement.
   - Ad-hoc signing produces a cdhash-based designated requirement that changes on every build.
@@ -186,13 +186,13 @@ Format defined in `UTTR_MASTER_AGENT_OPERATING_PROMPT.md`.
 - Options considered:
   1. Continue publishing ad-hoc releases and rely on manual updates.
   2. Disable Sparkle until a Developer ID release process exists.
-  3. Fail closed: only publish Developer ID-signed, notarized, stapled archives whose EdDSA signature is verified against the app's embedded Sparkle public key.
-- Decision: Option 3. The release workflow imports a Developer ID Application certificate from GitHub Secrets, builds with hardened runtime and a timestamp, notarizes/staples the DMG, and verifies the Gatekeeper assessment before release assets or the appcast are published. It then uses `Scripts/verify-sparkle-signature.swift` to prove the archive signature matches `SUPublicEDKey` in the built app. Automatic checking and updates are enabled with a 24-hour interval.
+  3. Fail closed: only publish stable-signed archives whose EdDSA signature is verified against the app's embedded Sparkle public key.
+- Decision: Option 3. The release workflow imports one long-lived self-signed `Uttr Release Signing` certificate from GitHub Secrets, builds with hardened runtime and a timestamp, and verifies the complete code-signature tree before publication. It then uses `Scripts/verify-sparkle-signature.swift` to prove the archive signature matches `SUPublicEDKey` in the built app. Automatic checking and updates are enabled with a 24-hour interval.
 - Consequences:
-  - The Developer ID certificate must remain stable; replacing it requires a deliberate migration.
+  - The release certificate must remain stable; replacing it requires a deliberate migration.
   - The EdDSA signing key (`SPARKLE_PRIVATE_KEY`) is also permanent infrastructure. If it is lost, already-installed copies that trust the existing `SUPublicEDKey` need a manual DMG reinstall.
-  - Existing ad-hoc installations need one manual install of the first Developer ID/notarized DMG. There is no safe way to silently bridge their invalid code-signing identity.
-- Validation required: Before enabling production releases, add the configured secrets/variable, publish a Developer ID release, manually install it on at least two clean Macs, then release a second build and verify automatic Sparkle update plus retention of Microphone, Input Monitoring, Accessibility, and login-item configuration.
+  - Existing ad-hoc installations may need one manual install of the first stable-signed DMG. There is no notarization/Gatekeeper trust benefit without Apple Developer enrollment.
+- Validation required: Before enabling production releases, add the two signing secrets, publish a stable-signed release, manually install it on at least two clean Macs, then release a second build and verify automatic Sparkle update plus retention of Microphone, Input Monitoring, Accessibility, and login-item configuration.
 
 ---
 
