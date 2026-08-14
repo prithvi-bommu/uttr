@@ -235,7 +235,7 @@ struct MacOSCompatibilityTests {
     // MARK: - Recording indicator sizing (macOS 26 constraint-loop fix)
 
     @Test("indicator window size is fixed and nonzero")
-    func indicatorWindowSize() {
+    @MainActor func indicatorWindowSize() {
         let size = RecordingIndicatorView.windowSize
         #expect(size.width > 0)
         #expect(size.height > 0)
