@@ -173,31 +173,26 @@ Format defined in `UTTR_MASTER_AGENT_OPERATING_PROMPT.md`.
 
 ---
 
-## ADR-011: Sparkle auto-updates ship with automatic checks disabled until Developer ID signing (M7)
+## ADR-011: Sparkle updates require stable release signing and archive-key verification
 
 - Date: 2026-08-14
 - Status: Accepted
-- Context: Uttr now integrates the Sparkle framework (v2.9.5) for over-the-air updates. CI builds produce a signed DMG, generate an EdDSA-signed appcast, and publish it to GitHub Pages. However, CI builds are ad-hoc signed (`codesign --sign -`), and per ADR-010, ad-hoc signing degrades the designated requirement to the binary's cdhash, which changes on every build.
+- Context: Uttr uses Sparkle (v2.9.5) to distribute on-air updates to installed instances. The initial release process generated a valid EdDSA appcast signature, but published ad-hoc-signed apps. Ad-hoc signing has no stable designated requirement, so Sparkle/macOS cannot reliably validate a replacement app across builds.
 - Evidence:
   - Per ADR-010, macOS keys every TCC grant (Microphone, Input Monitoring, Accessibility) and `SMAppService` login-item registration to the app's code-signing designated requirement.
   - Ad-hoc signing produces a cdhash-based designated requirement that changes on every build.
-  - Therefore, every Sparkle auto-update is seen by macOS as a different application: all three permission grants are wiped, and the launch-at-login registration is dropped.
-  - Per ADR-009, re-granting Input Monitoring on ad-hoc builds requires a manual drag-into-the-pane, which users will not discover on their own.
-  - An unattended auto-update on an ad-hoc-signed build leaves users with a broken app that appears installed but silently does nothing.
+  - A Sparkle EdDSA signature protects the archive but does not replace macOS code-signing validation for the app bundle.
+  - Ad-hoc-signed releases can therefore fail Sparkle validation with “improperly signed,” and they also lose TCC and login-item identity on replacement.
 - Options considered:
-  1. Ship with automatic checks enabled (`SUEnableAutomaticChecks = true`) and accept the permission-loss UX — users will figure it out.
-  2. Ship with automatic checks disabled by default (`SUEnableAutomaticChecks = false`, `SUAllowsAutomaticUpdates = false`) so updating is always a deliberate, informed user action with a visible warning about the consequences.
-  3. Delay Sparkle integration entirely until Developer ID signing (M7).
-- Decision: Option 2. The following defaults are set in `Info.plist`:
-  - `SUEnableAutomaticChecks = false` — first launch defaults to "do not check automatically."
-  - `SUAllowsAutomaticUpdates = false` — never install silently.
-  - `SUScheduledCheckInterval = 86400` — once checks are enabled, poll every 24 hours.
-  The user can enable automatic checking via Settings → General → Updates, where a visible warning explains the permission-loss consequence. The "Check for Updates…" menu bar item provides on-demand checking.
+  1. Continue publishing ad-hoc releases and rely on manual updates.
+  2. Disable Sparkle until a Developer ID release process exists.
+  3. Fail closed: only publish stable-signed archives whose EdDSA signature is verified against the app's embedded Sparkle public key.
+- Decision: Option 3. The release workflow imports one long-lived self-signed `Uttr Release Signing` certificate from GitHub Secrets, builds with hardened runtime and a timestamp, and verifies the complete code-signature tree before publication. It then uses `Scripts/verify-sparkle-signature.swift` to prove the archive signature matches `SUPublicEDKey` in the built app. Automatic checking and updates are enabled with a 24-hour interval.
 - Consequences:
-  - Users who enable automatic checks will be offered updates but must confirm installation. They are warned that permissions may need to be re-granted.
-  - Once a Developer ID Application certificate is in use (M7), the designated requirement anchors to the stable certificate leaf, grants survive updates, and this caveat evaporates. At that point: flip `SUEnableAutomaticChecks` to `true`, optionally set `SUAllowsAutomaticUpdates` to `true`, and remove the Settings warning.
-  - The EdDSA signing key (`SPARKLE_PRIVATE_KEY` repository secret) is critical infrastructure: if lost, every already-installed copy of Uttr becomes permanently un-updatable because they only trust the public key baked into their bundle.
-- Validation required: After M7, the maintainer must (1) verify that TCC permissions survive a Sparkle update with Developer ID signing, (2) flip `SUEnableAutomaticChecks` to `true` in `Info.plist`, (3) remove the `// TODO(M7)` warning from `GeneralSettingsView.swift`, and (4) update the README and RELEASE.md notes.
+  - The release certificate must remain stable; replacing it requires a deliberate migration.
+  - The EdDSA signing key (`SPARKLE_PRIVATE_KEY`) is also permanent infrastructure. If it is lost, already-installed copies that trust the existing `SUPublicEDKey` need a manual DMG reinstall.
+  - Existing ad-hoc installations may need one manual install of the first stable-signed DMG. There is no notarization/Gatekeeper trust benefit without Apple Developer enrollment.
+- Validation required: Before enabling production releases, add the two signing secrets, publish a stable-signed release, manually install it on at least two clean Macs, then release a second build and verify automatic Sparkle update plus retention of Microphone, Input Monitoring, Accessibility, and login-item configuration.
 
 ---
 
