@@ -4,14 +4,14 @@
     <title>Uttr</title>
     <item>
       <title>Uttr 0.0.1</title>
-      <pubDate>Fri, 14 Aug 2026 06:48:03 +0000</pubDate>
-      <sparkle:version>7</sparkle:version>
+      <pubDate>Fri, 14 Aug 2026 18:04:30 +0000</pubDate>
+      <sparkle:version>8</sparkle:version>
       <sparkle:shortVersionString>0.0.1</sparkle:shortVersionString>
       <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
-      <description><![CDATA[<p>Uttr 0.0.1 (build 7)</p>]]></description>
+      <description><![CDATA[<p>Uttr 0.0.1 (build 8)</p>]]></description>
       <enclosure url="https://github.com/prithvi-bommu/uttr/releases/download/latest/Uttr-0.0.1.dmg"
-       sparkle:edSignature="a6bh8ougGlRXgFLhlV/FuhqUTMQXwLdzrqqZgNkPs+MSMT55Cp2tXf7hYAJWlp0bNeHDCOW8JvtTZra4XwB6AQ=="
-       length="3056701"
+       sparkle:edSignature="comPgRD50lgcr3YalAWTxeL4UUNyTeyKF7P3Z2aExx3h+daF/fx+moeAb/J6zuax9EBHDOxR13O8wtNtxBXOAQ=="
+       length="3047639"
        type="application/octet-stream" />
     </item>
   </channel>
