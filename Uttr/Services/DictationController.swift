@@ -106,21 +106,8 @@ final class DictationController {
         let audio = await recorder.stopRecording()
         DebugFileLog.append("dictation", "Captured \(String(format: "%.2f", audio.duration))s of audio")
 
-        switch AudioPolicy.evaluate(audio) {
-        case .tooShort:
-            logger.info("Dictation rejected: too short (\(String(format: "%.2f", audio.duration), privacy: .public)s)")
-            DebugFileLog.append("dictation", "REJECTED: too short")
-            appState.handle(.noUsableAudio)
-            recordOutcome(.rejectedTooShort, audio: audio, hitMaxDuration: hitMaxDuration)
+        guard rejectUnusableAudio(audio, hitMaxDuration: hitMaxDuration) == nil else {
             return
-        case .noUsableAudio:
-            logger.info("Dictation rejected: no meaningful samples")
-            DebugFileLog.append("dictation", "REJECTED: no meaningful samples (mic silent? check Microphone permission)")
-            appState.handle(.noUsableAudio)
-            recordOutcome(.rejectedNoUsableAudio, audio: audio, hitMaxDuration: hitMaxDuration)
-            return
-        case .usable:
-            break
         }
 
         let decodeAudio = AudioPolicy.rightPadded(audio)
@@ -155,70 +142,88 @@ final class DictationController {
         }
 
         appState.handle(.transcriptionCompleted(transcript))
+        let context = PipelineContext(
+            audio: audio, sessionID: sessionID,
+            releasedAt: releasedAt, transcriptAt: transcriptAt,
+            hitMaxDuration: hitMaxDuration)
+        await polishAndPaste(transcript: transcript, context: context)
+    }
 
-        // Stage 1: local (offline) cleanup — always synchronous, never fails
-        var localText = transcript
-        if let polisher = localPolisherProvider() {
-            do {
-                let polished = try await polisher.polish(transcript)
-                    .trimmingCharacters(in: .whitespacesAndNewlines)
-                if !polished.isEmpty {
-                    localText = polished
-                }
-            } catch {
-                logger.error("Local polish failed open: \(error.localizedDescription, privacy: .public)")
-            }
+    private struct PipelineContext {
+        let audio: CapturedAudio
+        let sessionID: UUID
+        let releasedAt: Date
+        let transcriptAt: Date
+        let hitMaxDuration: Bool
+    }
+
+    private func rejectUnusableAudio(
+        _ audio: CapturedAudio, hitMaxDuration: Bool
+    ) -> DictationRecord.Result? {
+        switch AudioPolicy.evaluate(audio) {
+        case .tooShort:
+            logger.info("Dictation rejected: too short")
+            DebugFileLog.append("dictation", "REJECTED: too short")
+            appState.handle(.noUsableAudio)
+            recordOutcome(.rejectedTooShort, audio: audio, hitMaxDuration: hitMaxDuration)
+            return .rejectedTooShort
+        case .noUsableAudio:
+            logger.info("Dictation rejected: no meaningful samples")
+            DebugFileLog.append("dictation", "REJECTED: no meaningful samples")
+            appState.handle(.noUsableAudio)
+            recordOutcome(.rejectedNoUsableAudio, audio: audio, hitMaxDuration: hitMaxDuration)
+            return .rejectedNoUsableAudio
+        case .usable:
+            return nil
         }
+    }
+
+    private func polishAndPaste(transcript: String, context: PipelineContext) async {
+        let localText = await applyLocalPolish(transcript)
         let localCleanAt = Date()
 
-        // Stage 2: adaptive cloud polish — races against budget deadline
         let cloudPolisher = cloudPolisherProvider()
-        let polishCoordinator = polishCoordinatorProvider()
-        let polishResult = await polishCoordinator.polish(
-            localText: localText,
-            cloudPolisher: cloudPolisher,
-            sessionID: sessionID)
+        let polishCoord = polishCoordinatorProvider()
+        let polishResult = await polishCoord.polish(
+            localText: localText, cloudPolisher: cloudPolisher,
+            sessionID: context.sessionID)
 
-        // Stale session guard: if a new dictation started while we polished,
-        // this session's result must not paste.
-        guard sessionID == currentSessionID else {
-            logger.info("Session \(sessionID) superseded — discarding result")
+        guard context.sessionID == currentSessionID else {
+            logger.info("Session \(context.sessionID) superseded — discarding result")
             return
         }
 
         let finalText = polishResult.text
-        if finalText == transcript {
-            appState.handle(.polishFailed)
-        } else {
-            appState.handle(.polishCompleted(finalText))
-        }
+        appState.handle(finalText == transcript ? .polishFailed : .polishCompleted(finalText))
 
         let pasteStartedAt = Date()
         let pasted = await pasteService.paste(finalText)
-        let pastedAt = Date()
         appState.handle(pasted ? .pasteCompleted : .pasteFailed)
-
-        let polisherName: String? = {
-            guard let cp = cloudPolisher else { return nil }
-            return String(describing: type(of: cp))
-        }()
 
         recordOutcome(
             pasted ? .completed : .pasteFailed,
-            audio: audio,
-            releasedAt: releasedAt,
-            transcriptAt: transcriptAt,
-            localCleanAt: localCleanAt,
+            audio: context.audio, releasedAt: context.releasedAt,
+            transcriptAt: context.transcriptAt, localCleanAt: localCleanAt,
             aiRequestStartedAt: polishResult.aiRequestStartedAt,
             aiResponseReceivedAt: polishResult.aiResponseReceivedAt,
-            pasteStartedAt: pasteStartedAt,
-            pastedAt: pastedAt,
+            pasteStartedAt: pasteStartedAt, pastedAt: Date(),
             transcriptCharacters: finalText.count,
-            hitMaxDuration: hitMaxDuration,
+            hitMaxDuration: context.hitMaxDuration,
             polishOutcome: polishResult.outcome,
-            polisherSelected: polisherName,
-            configuredBudgetMs: polishCoordinator.budgetMs
-        )
+            polisherSelected: cloudPolisher.map { String(describing: type(of: $0)) },
+            configuredBudgetMs: polishCoord.budgetMs)
+    }
+
+    private func applyLocalPolish(_ transcript: String) async -> String {
+        guard let polisher = localPolisherProvider() else { return transcript }
+        do {
+            let polished = try await polisher.polish(transcript)
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            return polished.isEmpty ? transcript : polished
+        } catch {
+            logger.error("Local polish failed open: \(error.localizedDescription, privacy: .public)")
+            return transcript
+        }
     }
 
     // MARK: - AI content stage

@@ -198,7 +198,7 @@ struct PolishCoordinatorTests {
     // MARK: - Timeline populated correctly
 
     @Test("successful polish populates full timeline")
-    func timelinePopulated() async {
+    func timelinePopulated() async throws {
         let polisher = DelayedPolisher(result: "polished", delayMs: 10)
         let coordinator = PolishCoordinator(budgetMs: 500)
         let before = Date()
@@ -209,8 +209,10 @@ struct PolishCoordinatorTests {
             sessionID: UUID())
 
         #expect(result.outcome == .aiSuccess)
-        #expect(result.aiRequestStartedAt! >= before)
-        #expect(result.aiResponseReceivedAt! >= result.aiRequestStartedAt!)
+        let started = try #require(result.aiRequestStartedAt)
+        let received = try #require(result.aiResponseReceivedAt)
+        #expect(started >= before)
+        #expect(received >= started)
     }
 }
 
@@ -288,142 +290,144 @@ struct AdaptivePolishIntegrationTests {
                        metrics: metrics, controller: controller)
     }
 
-    private func runDictation(_ h: Harness) async {
-        h.appState.handle(.hotkeyDown)
-        h.controller.recordingStarted()
-        await waitUntil { h.recorder.startCount == 1 }
-        h.appState.handle(.hotkeyUp)
-        h.controller.recordingEnded()
-        await waitUntil { h.appState.dictationState == .idle && !h.pasteService.pastedTexts.isEmpty }
+    private func runDictation(_ harness: Harness) async {
+        harness.appState.handle(.hotkeyDown)
+        harness.controller.recordingStarted()
+        await waitUntil { harness.recorder.startCount == 1 }
+        harness.appState.handle(.hotkeyUp)
+        harness.controller.recordingEnded()
+        await waitUntil {
+            harness.appState.dictationState == .idle && !harness.pasteService.pastedTexts.isEmpty
+        }
     }
 
     // MARK: - Fast cloud polish pastes polished text
 
     @Test("fast cloud polish: paste polished text")
     func fastCloudPolish() async {
-        let h = makeHarness(
+        let harness = makeHarness(
             localPolisher: StubPolisher(result: "local cleaned"),
             cloudPolisher: StubPolisher(result: "cloud cleaned"),
             budgetMs: 500)
-        h.factory.whisperEngine.transcriptToReturn = "raw text"
+        harness.factory.whisperEngine.transcriptToReturn = "raw text"
 
-        await runDictation(h)
+        await runDictation(harness)
 
-        #expect(h.pasteService.pastedTexts == ["cloud cleaned"])
-        #expect(h.appState.lastTranscript == "cloud cleaned")
-        #expect(h.metrics.records.first?.polishOutcome == .aiSuccess)
+        #expect(harness.pasteService.pastedTexts == ["cloud cleaned"])
+        #expect(harness.appState.lastTranscript == "cloud cleaned")
+        #expect(harness.metrics.records.first?.polishOutcome == .aiSuccess)
     }
 
     // MARK: - Slow cloud polish falls back to local-cleaned text
 
     @Test("slow cloud polish: paste local-cleaned text")
     func slowCloudPolish() async {
-        let h = makeHarness(
+        let harness = makeHarness(
             localPolisher: StubPolisher(result: "local cleaned"),
             cloudPolisher: SlowPolisher(result: "late result", delayMs: 500),
             budgetMs: 50)
-        h.factory.whisperEngine.transcriptToReturn = "raw text"
+        harness.factory.whisperEngine.transcriptToReturn = "raw text"
 
-        await runDictation(h)
+        await runDictation(harness)
 
-        #expect(h.pasteService.pastedTexts == ["local cleaned"])
-        #expect(h.metrics.records.first?.polishOutcome == .deadlineFallback)
+        #expect(harness.pasteService.pastedTexts == ["local cleaned"])
+        #expect(harness.metrics.records.first?.polishOutcome == .deadlineFallback)
     }
 
     // MARK: - Provider failure falls back to local-cleaned text
 
     @Test("provider failure: paste local-cleaned text")
     func providerFailureFallback() async {
-        let h = makeHarness(
+        let harness = makeHarness(
             localPolisher: StubPolisher(result: "local cleaned"),
             cloudPolisher: FailingPolisher(),
             budgetMs: 500)
-        h.factory.whisperEngine.transcriptToReturn = "raw text"
+        harness.factory.whisperEngine.transcriptToReturn = "raw text"
 
-        await runDictation(h)
+        await runDictation(harness)
 
-        #expect(h.pasteService.pastedTexts == ["local cleaned"])
-        #expect(h.metrics.records.first?.polishOutcome == .providerFailure)
+        #expect(harness.pasteService.pastedTexts == ["local cleaned"])
+        #expect(harness.metrics.records.first?.polishOutcome == .providerFailure)
     }
 
     // MARK: - No cloud polisher → paste local-cleaned text
 
     @Test("no cloud polisher: paste local-cleaned text")
     func noCloudPolisher() async {
-        let h = makeHarness(
+        let harness = makeHarness(
             localPolisher: StubPolisher(result: "local cleaned"),
             cloudPolisher: nil,
             budgetMs: 500)
-        h.factory.whisperEngine.transcriptToReturn = "raw text"
+        harness.factory.whisperEngine.transcriptToReturn = "raw text"
 
-        await runDictation(h)
+        await runDictation(harness)
 
-        #expect(h.pasteService.pastedTexts == ["local cleaned"])
-        #expect(h.metrics.records.first?.polishOutcome == .noPolisher)
+        #expect(harness.pasteService.pastedTexts == ["local cleaned"])
+        #expect(harness.metrics.records.first?.polishOutcome == .noPolisher)
     }
 
     // MARK: - No polishers at all → paste raw transcript
 
     @Test("no polishers: paste raw transcript")
     func noPolishers() async {
-        let h = makeHarness(budgetMs: 500)
-        h.factory.whisperEngine.transcriptToReturn = "raw text"
+        let harness = makeHarness(budgetMs: 500)
+        harness.factory.whisperEngine.transcriptToReturn = "raw text"
 
-        await runDictation(h)
+        await runDictation(harness)
 
-        #expect(h.pasteService.pastedTexts == ["raw text"])
+        #expect(harness.pasteService.pastedTexts == ["raw text"])
     }
 
     // MARK: - Paste executes exactly once on every path
 
     @Test("paste executes exactly once on success path")
     func pasteExactlyOnceSuccess() async {
-        let h = makeHarness(
+        let harness = makeHarness(
             cloudPolisher: StubPolisher(result: "polished"),
             budgetMs: 500)
-        h.factory.whisperEngine.transcriptToReturn = "raw"
+        harness.factory.whisperEngine.transcriptToReturn = "raw"
 
-        await runDictation(h)
+        await runDictation(harness)
 
-        #expect(h.pasteService.pastedTexts.count == 1)
+        #expect(harness.pasteService.pastedTexts.count == 1)
     }
 
     @Test("paste executes exactly once on fallback path")
     func pasteExactlyOnceFallback() async {
-        let h = makeHarness(
+        let harness = makeHarness(
             cloudPolisher: SlowPolisher(result: "late", delayMs: 500),
             budgetMs: 50)
-        h.factory.whisperEngine.transcriptToReturn = "raw"
+        harness.factory.whisperEngine.transcriptToReturn = "raw"
 
-        await runDictation(h)
+        await runDictation(harness)
 
-        #expect(h.pasteService.pastedTexts.count == 1)
+        #expect(harness.pasteService.pastedTexts.count == 1)
     }
 
     @Test("paste executes exactly once on failure path")
     func pasteExactlyOnceFailure() async {
-        let h = makeHarness(
+        let harness = makeHarness(
             cloudPolisher: FailingPolisher(),
             budgetMs: 500)
-        h.factory.whisperEngine.transcriptToReturn = "raw"
+        harness.factory.whisperEngine.transcriptToReturn = "raw"
 
-        await runDictation(h)
+        await runDictation(harness)
 
-        #expect(h.pasteService.pastedTexts.count == 1)
+        #expect(harness.pasteService.pastedTexts.count == 1)
     }
 
     // MARK: - Metrics timeline recorded
 
     @Test("metrics record polish outcome and configured budget")
-    func metricsRecorded() async {
-        let h = makeHarness(
+    func metricsRecorded() async throws {
+        let harness = makeHarness(
             cloudPolisher: StubPolisher(result: "polished"),
             budgetMs: 250)
-        h.factory.whisperEngine.transcriptToReturn = "raw"
+        harness.factory.whisperEngine.transcriptToReturn = "raw"
 
-        await runDictation(h)
+        await runDictation(harness)
 
-        let record = h.metrics.records.first!
+        let record = try #require(harness.metrics.records.first)
         #expect(record.polishOutcome == .aiSuccess)
         #expect(record.configuredBudgetMs == 250)
         #expect(record.releaseToTranscriptMs != nil)

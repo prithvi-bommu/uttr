@@ -91,9 +91,9 @@ final class DictationMetrics {
     }
 
     private func rateOf(outcomes: Set<PolishOutcome>) -> Double? {
-        let polished = records.filter { $0.polishOutcome != nil && $0.polishOutcome != .noPolisher }
+        let polished = records.compactMap(\.polishOutcome).filter { $0 != .noPolisher }
         guard !polished.isEmpty else { return nil }
-        let matching = polished.filter { outcomes.contains($0.polishOutcome!) }
+        let matching = polished.filter { outcomes.contains($0) }
         return Double(matching.count) / Double(polished.count)
     }
 }

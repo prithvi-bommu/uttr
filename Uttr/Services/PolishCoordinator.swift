@@ -43,17 +43,21 @@ struct PolishCoordinator: Sendable {
                                 aiRequestStartedAt: nil, aiResponseReceivedAt: nil)
         }
 
+        return await racePolishAgainstDeadline(polisher: polisher, localText: localText)
+    }
+
+    // MARK: - Race
+
+    private func racePolishAgainstDeadline(
+        polisher: TextPolisher, localText: String
+    ) async -> PolishResult {
         let aiStartedAt = Date()
-
-        let polishTask = Task<String, Error> {
-            try await polisher.polish(localText)
-        }
-
+        let polishTask = Task<String, Error> { try await polisher.polish(localText) }
         let timerTask = Task<Void, Never> {
             try? await Task.sleep(nanoseconds: UInt64(budgetMs) * 1_000_000)
         }
 
-        let result: PolishResult = await withTaskGroup(of: PolishRaceResult.self) { group in
+        return await withTaskGroup(of: PolishRaceResult.self) { group in
             group.addTask {
                 do {
                     let polished = try await polishTask.value
@@ -69,56 +73,69 @@ struct PolishCoordinator: Sendable {
                 return .timeout
             }
 
-            var aiReceivedAt: Date?
-
-            if let first = await group.next() {
-                switch first {
-                case .polished(let text, let receivedAt):
-                    aiReceivedAt = receivedAt
-                    polishTask.cancel()
-                    timerTask.cancel()
-
-                    let validated = validate(text, original: localText)
-                    if let validated {
-                        return PolishResult(text: validated, outcome: .aiSuccess,
-                                            aiRequestStartedAt: aiStartedAt,
-                                            aiResponseReceivedAt: aiReceivedAt)
-                    } else {
-                        logger.info("AI polish response failed validation — using local text")
-                        return PolishResult(text: localText, outcome: .invalidResponse,
-                                            aiRequestStartedAt: aiStartedAt,
-                                            aiResponseReceivedAt: aiReceivedAt)
-                    }
-
-                case .timeout:
-                    polishTask.cancel()
-                    logger.info("AI polish deadline (\(budgetMs)ms) exceeded — using local text")
-                    return PolishResult(text: localText, outcome: .deadlineFallback,
-                                        aiRequestStartedAt: aiStartedAt,
-                                        aiResponseReceivedAt: nil)
-
-                case .failed(let error):
-                    timerTask.cancel()
-                    logger.error("AI polish failed: \(error.localizedDescription, privacy: .public)")
-                    return PolishResult(text: localText, outcome: .providerFailure,
-                                        aiRequestStartedAt: aiStartedAt,
-                                        aiResponseReceivedAt: Date())
-
-                case .cancelled:
-                    timerTask.cancel()
-                    return PolishResult(text: localText, outcome: .cancelled,
-                                        aiRequestStartedAt: aiStartedAt,
-                                        aiResponseReceivedAt: nil)
-                }
+            guard let first = await group.next() else {
+                return fallback(localText, aiStartedAt: aiStartedAt, outcome: .cancelled)
             }
 
-            return PolishResult(text: localText, outcome: .cancelled,
-                                aiRequestStartedAt: aiStartedAt,
-                                aiResponseReceivedAt: nil)
+            return resolveRace(first, polishTask: polishTask, timerTask: timerTask,
+                               localText: localText, aiStartedAt: aiStartedAt)
         }
-
-        return result
     }
+
+    // MARK: - Resolution
+
+    private func resolveRace(
+        _ first: PolishRaceResult,
+        polishTask: Task<String, Error>,
+        timerTask: Task<Void, Never>,
+        localText: String,
+        aiStartedAt: Date
+    ) -> PolishResult {
+        switch first {
+        case .polished(let text, let receivedAt):
+            polishTask.cancel()
+            timerTask.cancel()
+            return resolvePolished(text, localText: localText,
+                                   aiStartedAt: aiStartedAt, receivedAt: receivedAt)
+
+        case .timeout:
+            polishTask.cancel()
+            logger.info("AI polish deadline (\(budgetMs)ms) exceeded — using local text")
+            return fallback(localText, aiStartedAt: aiStartedAt, outcome: .deadlineFallback)
+
+        case .failed(let error):
+            timerTask.cancel()
+            logger.error("AI polish failed: \(error.localizedDescription, privacy: .public)")
+            return PolishResult(text: localText, outcome: .providerFailure,
+                                aiRequestStartedAt: aiStartedAt, aiResponseReceivedAt: Date())
+
+        case .cancelled:
+            timerTask.cancel()
+            return fallback(localText, aiStartedAt: aiStartedAt, outcome: .cancelled)
+        }
+    }
+
+    private func resolvePolished(
+        _ text: String, localText: String,
+        aiStartedAt: Date, receivedAt: Date
+    ) -> PolishResult {
+        if let validated = validate(text, original: localText) {
+            return PolishResult(text: validated, outcome: .aiSuccess,
+                                aiRequestStartedAt: aiStartedAt, aiResponseReceivedAt: receivedAt)
+        }
+        logger.info("AI polish response failed validation — using local text")
+        return PolishResult(text: localText, outcome: .invalidResponse,
+                            aiRequestStartedAt: aiStartedAt, aiResponseReceivedAt: receivedAt)
+    }
+
+    private func fallback(
+        _ localText: String, aiStartedAt: Date, outcome: PolishOutcome
+    ) -> PolishResult {
+        PolishResult(text: localText, outcome: outcome,
+                     aiRequestStartedAt: aiStartedAt, aiResponseReceivedAt: nil)
+    }
+
+    // MARK: - Validation
 
     private func validate(_ polished: String, original: String) -> String? {
         let trimmed = polished.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -132,8 +149,8 @@ struct PolishCoordinator: Sendable {
             "here is", "here's", "sure,", "certainly,",
             "of course,", "i've cleaned", "cleaned up",
         ]
-        for prefix in framingPrefixes {
-            if lower.hasPrefix(prefix) { return nil }
+        for prefix in framingPrefixes where lower.hasPrefix(prefix) {
+            return nil
         }
 
         let hallucinationCleaned = HallucinationFilter.clean(trimmed)
