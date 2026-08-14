@@ -6,6 +6,7 @@ struct MenuBarView: View {
     var coordinator: TranscriptionCoordinator?
     var metrics: DictationMetrics?
     var permissionService: PermissionChecking?
+    var updater: UpdaterServicing?
     @Environment(\.openWindow) private var openWindow
     @Environment(\.openSettings) private var openSettings
 
@@ -49,6 +50,13 @@ struct MenuBarView: View {
 
         Button("View privacy details…") {
             openSettingsAndFocus()
+        }
+
+        if let updater {
+            Button("Check for Updates…") {
+                updater.checkForUpdates()
+            }
+            .disabled(!updater.canCheckForUpdates)
         }
 
         #if DEBUG

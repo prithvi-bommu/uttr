@@ -9,6 +9,10 @@ A menu-bar-only, hold-to-talk, local-first dictation app for macOS.
 3. First launch (pre-notarized builds): macOS Gatekeeper will warn that the app can't be verified. Right-click **Uttr.app** → **Open** → **Open**, or run `xattr -d com.apple.quarantine /Applications/Uttr.app`. This goes away once releases are Developer-ID signed and notarized (planned for v1.0).
 4. On first launch, Uttr's setup walks you through the three required permissions (Microphone, Input Monitoring, Accessibility). Input Monitoring and Accessibility take effect only after you quit and reopen Uttr — the setup says so at the right steps.
 
+## Updates
+
+Uttr can check for updates from the menu bar ("Check for Updates…") or from Settings → General → Updates. Automatic checking is off by default. Until the app is Developer ID signed, updating may require you to re-grant Microphone, Input Monitoring, and Accessibility permissions afterward.
+
 ## Requirements
 
 - Apple Silicon Mac (arm64)

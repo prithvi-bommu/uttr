@@ -13,6 +13,12 @@ name: Release
 # When a Developer ID certificate is available (M7, docs/RELEASE.md), add
 # the cert + notarization secrets and extend the Sign step - the rest of
 # this workflow stays the same.
+#
+# Sparkle auto-updates: the appcast step requires the SPARKLE_PRIVATE_KEY
+# repository secret (EdDSA private key from Sparkle's generate_keys tool).
+# Without it the appcast signing step will fail. See ADR-011 for the
+# ad-hoc signing caveat — automatic checks are disabled by default because
+# TCC permission grants are lost on every update until Developer ID (M7).
 
 on:
   push:
@@ -56,23 +62,128 @@ jobs:
             -destination "platform=macOS,arch=arm64" \
             ARCHS=arm64 \
             CODE_SIGN_IDENTITY="-" \
-            CODE_SIGNING_REQUIRED=NO
+            CODE_SIGNING_REQUIRED=NO \
+            CURRENT_PROJECT_VERSION=${{ github.run_number }}
 
       - name: Sign (ad-hoc; replaced by Developer ID at M7)
         run: |
           APP="build/release/Build/Products/Release/Uttr.app"
+          FW="$APP/Contents/Frameworks/Sparkle.framework"
+
+          # Sign nested helpers inside-out. XPC services may not exist in all
+          # Sparkle releases; ignore failures for those but require the rest.
+          find "$FW" -name "*.xpc" -print0 2>/dev/null | while IFS= read -r -d '' xpc; do
+            codesign --force --sign - "$xpc" 2>/dev/null || true
+          done
+
+          # Sign Autoupdate and Updater.app — find them regardless of Versions/A or B.
+          find "$FW" -name "Autoupdate" -type f -print0 | while IFS= read -r -d '' f; do
+            codesign --force --sign - "$f"
+          done
+          find "$FW" -name "Updater.app" -type d -print0 | while IFS= read -r -d '' f; do
+            codesign --force --sign - "$f"
+          done
+
+          # Sign the framework itself.
+          codesign --force --sign - "$FW"
+
+          # Sign the outer app.
           codesign --force --sign - --identifier com.uttr.app "$APP"
-          codesign --verify --strict "$APP"
+
+          # Verify the full tree.
+          codesign --verify --strict --deep --verbose=2 "$APP"
 
       - name: Package DMG
         id: dmg
         run: |
           APP="build/release/Build/Products/Release/Uttr.app"
           VERSION=$(defaults read "$(pwd)/$APP/Contents/Info" CFBundleShortVersionString 2>/dev/null || echo "0.0.0")
+          BUILD=$(defaults read "$(pwd)/$APP/Contents/Info" CFBundleVersion 2>/dev/null || echo "0")
           ./Scripts/make-dmg.sh "$APP" "$VERSION"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "build=$BUILD" >> "$GITHUB_OUTPUT"
           echo "dmg=build/Uttr-$VERSION.dmg" >> "$GITHUB_OUTPUT"
           echo "sha=build/Uttr-$VERSION.dmg.sha256" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Sparkle tools
+        if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
+        id: sparkle-cache
+        uses: actions/cache@v4
+        with:
+          path: sparkle-tools
+          key: sparkle-tools-2.9.5
+
+      - name: Download Sparkle tools
+        if: (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')) && steps.sparkle-cache.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p sparkle-tools
+          curl -L -o sparkle-tools/Sparkle-2.9.5.tar.xz \
+            "https://github.com/sparkle-project/Sparkle/releases/download/2.9.5/Sparkle-2.9.5.tar.xz"
+          cd sparkle-tools && tar xf Sparkle-2.9.5.tar.xz
+
+      - name: Sign DMG and generate appcast
+        if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
+        env:
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+        run: |
+          # Write the private key to a temp file — never interpolate into command line.
+          KEY_FILE="$RUNNER_TEMP/sparkle_key"
+          printf '%s' "$SPARKLE_PRIVATE_KEY" > "$KEY_FILE"
+          chmod 600 "$KEY_FILE"
+
+          DMG="${{ steps.dmg.outputs.dmg }}"
+          VERSION="${{ steps.dmg.outputs.version }}"
+          BUILD="${{ steps.dmg.outputs.build }}"
+
+          # Sign the DMG and capture the signature attributes.
+          SIG_OUTPUT=$(./sparkle-tools/bin/sign_update -f "$KEY_FILE" "$DMG")
+          echo "Signature output: $SIG_OUTPUT"
+
+          # Parse signature and length from the output.
+          ED_SIG=$(echo "$SIG_OUTPUT" | grep -oP 'sparkle:edSignature="\K[^"]+')
+          LENGTH=$(stat -f%z "$DMG" 2>/dev/null || stat --printf="%s" "$DMG")
+
+          # Determine download URL.
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            TAG="${GITHUB_REF#refs/tags/}"
+            DL_URL="https://github.com/prithvi-bommu/uttr/releases/download/$TAG/Uttr-$VERSION.dmg"
+          else
+            DL_URL="https://github.com/prithvi-bommu/uttr/releases/download/latest/Uttr-$VERSION.dmg"
+          fi
+
+          PUB_DATE=$(date -u '+%a, %d %b %Y %H:%M:%S %z')
+
+          cat > build/appcast.xml <<APPCAST_EOF
+          <?xml version="1.0" encoding="utf-8"?>
+          <rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
+            <channel>
+              <title>Uttr</title>
+              <item>
+                <title>Uttr $VERSION</title>
+                <pubDate>$PUB_DATE</pubDate>
+                <sparkle:version>$BUILD</sparkle:version>
+                <sparkle:shortVersionString>$VERSION</sparkle:shortVersionString>
+                <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
+                <description><![CDATA[<p>Uttr $VERSION (build $BUILD)</p>]]></description>
+                <enclosure url="$DL_URL"
+                           sparkle:edSignature="$ED_SIG"
+                           length="$LENGTH"
+                           type="application/octet-stream" />
+              </item>
+            </channel>
+          </rss>
+          APPCAST_EOF
+
+          # Strip leading whitespace from heredoc indentation.
+          sed -i '' 's/^          //' build/appcast.xml 2>/dev/null || sed -i 's/^          //' build/appcast.xml
+
+          # Validate XML.
+          xmllint --noout build/appcast.xml
+
+          # Clean up key file.
+          rm -f "$KEY_FILE"
+
+          echo "appcast=build/appcast.xml" >> "$GITHUB_OUTPUT"
 
       - name: Publish rolling "latest" release (main merges)
         if: github.ref == 'refs/heads/main'
@@ -85,13 +196,18 @@ jobs:
           Verify integrity with the attached .sha256 file."
           # Recreate the rolling release so its tag always points at this commit.
           gh release delete latest --yes --cleanup-tag 2>/dev/null || true
+
+          ASSETS=("${{ steps.dmg.outputs.dmg }}" "${{ steps.dmg.outputs.sha }}")
+          if [ -f build/appcast.xml ]; then
+            ASSETS+=("build/appcast.xml")
+          fi
+
           gh release create latest \
             --prerelease \
             --title "Latest build (main)" \
             --notes "$NOTES" \
             --target "$GITHUB_SHA" \
-            "${{ steps.dmg.outputs.dmg }}" \
-            "${{ steps.dmg.outputs.sha }}"
+            "${ASSETS[@]}"
 
       - name: Publish versioned release (tags)
         if: startsWith(github.ref, 'refs/tags/v')
@@ -99,8 +215,27 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           TAG="${GITHUB_REF#refs/tags/}"
+
+          ASSETS=("${{ steps.dmg.outputs.dmg }}" "${{ steps.dmg.outputs.sha }}")
+          if [ -f build/appcast.xml ]; then
+            ASSETS+=("build/appcast.xml")
+          fi
+
           gh release create "$TAG" \
             --title "Uttr $TAG" \
             --generate-notes \
-            "${{ steps.dmg.outputs.dmg }}" \
-            "${{ steps.dmg.outputs.sha }}"
+            "${ASSETS[@]}"
+
+      - name: Publish appcast to GitHub Pages
+        if: (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')) && hashFiles('build/appcast.xml') != ''
+        run: |
+          mkdir -p build/pages
+          cp build/appcast.xml build/pages/appcast.xml
+
+      - name: Deploy to gh-pages
+        if: (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')) && hashFiles('build/appcast.xml') != ''
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ github.token }}
+          publish_dir: build/pages
+          publish_branch: gh-pages

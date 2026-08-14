@@ -13,7 +13,8 @@ struct UttrApp: App {
                 configStore: env.configStore,
                 coordinator: env.transcriptionCoordinator,
                 metrics: env.dictationMetrics,
-                permissionService: env.permissionService
+                permissionService: env.permissionService,
+                updater: env.updaterService
             )
         } label: {
             // The label renders in the status bar at launch, so this is the
@@ -31,7 +32,8 @@ struct UttrApp: App {
                 transcriptionCoordinator: env.transcriptionCoordinator,
                 onTranscriptionChanged: { env.configureTranscription() },
                 onStartAtLoginChanged: { env.applyStartAtLogin($0) },
-                onAIConfigChanged: { env.applyAIHotkey() }
+                onAIConfigChanged: { env.applyAIHotkey() },
+                updater: env.updaterService
             )
         }
 

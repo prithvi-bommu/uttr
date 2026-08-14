@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Sparkle auto-update framework (v2.9.5) for over-the-air updates via EdDSA-signed appcast published to GitHub Pages (ADR-011)
+- "Check for Updates…" menu bar item with `NSApplication.activate` to ensure the update dialog is visible on `LSUIElement` apps
+- Settings → General → Updates section: toggle for automatic checks, Check Now button, last-checked date, and permission-loss warning for ad-hoc-signed builds
+- `UpdaterServicing` protocol with `SparkleUpdaterService` (production, `#if canImport(Sparkle)` guarded) and `MockUpdaterService` (test double)
+- Release workflow: monotonic build number via `github.run_number`, inside-out Sparkle framework signing, DMG EdDSA signing, appcast generation, and GitHub Pages deployment
+- 6 new unit tests for `UpdaterService` (248 total, 0 failures)
+
 ### Fixed
 
 - Shortcut rebinding: `EventTapHotkeyService` parked its serial queue's thread inside `CFRunLoopRun()`, so `beginCapture`/`updateHotkey`/`cancelCapture` (dispatched with `queue.async`) never executed — Change Shortcut could never capture or apply a new combination. Decision logic is now a pure, lock-protected `HotkeyEventProcessor` mutated synchronously (ADR-008)

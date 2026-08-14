@@ -10,6 +10,7 @@ final class AppEnvironment {
     let permissionService: PermissionChecking = RealPermissionService()
     let hotkeyService: HotkeyServiceProtocol = EventTapHotkeyService()
     let loginItemService: LoginItemManaging = SMAppServiceLoginItem()
+    let updaterService: UpdaterServicing = SparkleUpdaterService()
     let transcriptionCoordinator = TranscriptionCoordinator()
     let dictationMetrics = DictationMetrics()
     private let recorder = AVAudioEngineRecorder()

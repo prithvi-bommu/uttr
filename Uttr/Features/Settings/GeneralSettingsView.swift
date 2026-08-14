@@ -9,6 +9,7 @@ struct GeneralSettingsView: View {
     /// Applies the login-item change to the system; returns false on refusal.
     /// Nil (previews/tests) falls back to persisting the setting only.
     var onStartAtLoginChanged: ((Bool) -> Bool)? = nil
+    var updater: UpdaterServicing?
     var fnUsage: FnUsageChecking = RealFnUsageService()
 
     @State private var fnGlobeAction: FnGlobeAction = .unknown
@@ -35,6 +36,39 @@ struct GeneralSettingsView: View {
                     Text(loginItemError)
                         .font(.caption)
                         .foregroundStyle(.red)
+                }
+            }
+
+            if let updater {
+                Section("Updates") {
+                    Toggle("Automatically check for updates", isOn: Binding(
+                        get: { updater.automaticallyChecksForUpdates },
+                        set: { updater.automaticallyChecksForUpdates = $0 }
+                    ))
+
+                    HStack {
+                        Button("Check Now") {
+                            updater.checkForUpdates()
+                        }
+                        .disabled(!updater.canCheckForUpdates)
+
+                        Spacer()
+
+                        Text(lastCheckText(updater.lastUpdateCheckDate))
+                            .foregroundStyle(.secondary)
+                            .font(.caption)
+                    }
+
+                    // TODO(M7): Remove this warning once Developer ID signing lands (ADR-011).
+                    HStack(alignment: .top, spacing: 8) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .foregroundStyle(.orange)
+                        Text("Updating replaces the app, and unsigned builds lose their macOS permission grants. After an update you may need to re-grant Microphone, Input Monitoring, and Accessibility access.")
+                            .font(.caption)
+                    }
+                    .padding(8)
+                    .background(.orange.opacity(0.1))
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
                 }
             }
 
@@ -115,6 +149,13 @@ struct GeneralSettingsView: View {
 
     private func refreshFnAction() {
         fnGlobeAction = fnUsage.currentAction()
+    }
+
+    private func lastCheckText(_ date: Date?) -> String {
+        guard let date else { return "Last checked: Never" }
+        let formatter = RelativeDateTimeFormatter()
+        formatter.unitsStyle = .full
+        return "Last checked: \(formatter.localizedString(for: date, relativeTo: Date()))"
     }
 
     private var currentHotkeyDisplay: String {
