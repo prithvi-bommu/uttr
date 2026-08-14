@@ -110,9 +110,21 @@ struct PolishSettingsView: View {
                     )
                 }
 
-                Section("Timeout") {
+                Section("Timing") {
                     HStack {
-                        Text("Timeout:")
+                        Text("Polish budget:")
+                        TextField("", value: Binding(
+                            get: { store.settings.cloudPolish.polishBudgetMs },
+                            set: { newValue in
+                                try? store.update { $0.cloudPolish.polishBudgetMs = newValue }
+                            }
+                        ), format: .number)
+                        .frame(width: 60)
+                        Text("ms (50–2000)")
+                            .foregroundStyle(.secondary)
+                    }
+                    HStack {
+                        Text("Transport timeout:")
                         TextField("", value: Binding(
                             get: { store.settings.cloudPolish.timeoutSeconds },
                             set: { newValue in
@@ -120,7 +132,7 @@ struct PolishSettingsView: View {
                             }
                         ), format: .number)
                         .frame(width: 60)
-                        Text("seconds (3–20)")
+                        Text("seconds (1–20)")
                             .foregroundStyle(.secondary)
                     }
                 }

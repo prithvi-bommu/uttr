@@ -22,6 +22,7 @@ struct UttrSettings: Codable, Equatable, Sendable {
         case polishEnabledWithoutKey
         case polishEnabledWithoutModel
         case timeoutOutOfRange
+        case budgetOutOfRange
 
         var errorDescription: String? {
             switch self {
@@ -36,7 +37,9 @@ struct UttrSettings: Codable, Equatable, Sendable {
             case .polishEnabledWithoutModel:
                 "A model is required when text polish is enabled."
             case .timeoutOutOfRange:
-                "Timeout must be between 3 and 20 seconds."
+                "Timeout must be between 1 and 20 seconds."
+            case .budgetOutOfRange:
+                "Polish budget must be between 50 and 2000 milliseconds."
             }
         }
     }
@@ -67,8 +70,11 @@ struct UttrSettings: Codable, Equatable, Sendable {
                 }
             }
         }
-        if cloudPolish.timeoutSeconds < 3 || cloudPolish.timeoutSeconds > 20 {
+        if cloudPolish.timeoutSeconds < 1 || cloudPolish.timeoutSeconds > 20 {
             throw ValidationError.timeoutOutOfRange
+        }
+        if cloudPolish.polishBudgetMs < 50 || cloudPolish.polishBudgetMs > 2000 {
+            throw ValidationError.budgetOutOfRange
         }
     }
 
@@ -84,7 +90,8 @@ struct UttrSettings: Codable, Equatable, Sendable {
         if !Self.validWhisperModels.contains(whisperModel) {
             whisperModel = "small.en"
         }
-        cloudPolish.timeoutSeconds = max(3, min(20, cloudPolish.timeoutSeconds))
+        cloudPolish.timeoutSeconds = max(1, min(20, cloudPolish.timeoutSeconds))
+        cloudPolish.polishBudgetMs = max(50, min(2000, cloudPolish.polishBudgetMs))
     }
 }
 
@@ -111,7 +118,8 @@ struct CloudPolishConfig: Codable, Equatable, Sendable {
     var provider: PolishProvider = .none
     var openAI: ProviderConfig = ProviderConfig(apiKey: "", model: "gpt-5.6-luna")
     var anthropic: ProviderConfig = ProviderConfig(apiKey: "", model: "claude-haiku-4-5")
-    var timeoutSeconds: Int = 8
+    var timeoutSeconds: Int = 4
+    var polishBudgetMs: Int = 250
 }
 
 enum PolishProvider: String, Codable, Equatable, Sendable {

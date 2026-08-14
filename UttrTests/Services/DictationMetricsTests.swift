@@ -8,17 +8,25 @@ struct DictationMetricsTests {
 
     private func record(
         result: DictationRecord.Result = .completed,
-        releaseToPasteMs: Int? = 500
+        releaseToPasteMs: Int? = 500,
+        polishOutcome: PolishOutcome? = nil
     ) -> DictationRecord {
         DictationRecord(
             startedAt: Date(),
             engineID: .whisperKit,
             result: result,
             audioDurationSeconds: 2.0,
+            hitMaxDuration: false,
             releaseToTranscriptMs: releaseToPasteMs.map { $0 - 100 },
+            transcriptToLocalCleanMs: nil,
+            localCleanToAiRequestMs: nil,
+            aiRequestToResponseMs: nil,
+            responseToPasteMs: nil,
             releaseToPasteMs: releaseToPasteMs,
-            transcriptCharacters: 42,
-            hitMaxDuration: false
+            polishOutcome: polishOutcome,
+            polisherSelected: nil,
+            configuredBudgetMs: nil,
+            transcriptCharacters: 42
         )
     }
 

@@ -146,7 +146,7 @@ struct ConfigurationStoreTests {
     func rejectsTimeoutOutOfRange() {
         let (store, _, _) = makeStore()
         #expect(throws: UttrSettings.ValidationError.self) {
-            try store.update { $0.cloudPolish.timeoutSeconds = 1 }
+            try store.update { $0.cloudPolish.timeoutSeconds = 0 }
         }
     }
 

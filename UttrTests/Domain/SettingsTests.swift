@@ -68,7 +68,7 @@ struct SettingsTests {
 
     @Test("default timeout is 8 seconds")
     func defaultTimeout() {
-        #expect(UttrSettings.default.cloudPolish.timeoutSeconds == 8)
+        #expect(UttrSettings.default.cloudPolish.timeoutSeconds == 4)
     }
 
     @Test("default OpenAI model")
@@ -146,10 +146,10 @@ struct SettingsTests {
         try settings.validate()
     }
 
-    @Test("timeout below 3 fails")
+    @Test("timeout below 1 fails")
     func timeoutTooLow() {
         var settings = UttrSettings.default
-        settings.cloudPolish.timeoutSeconds = 2
+        settings.cloudPolish.timeoutSeconds = 0
         #expect(throws: UttrSettings.ValidationError.timeoutOutOfRange) {
             try settings.validate()
         }
@@ -187,13 +187,25 @@ struct SettingsTests {
     @Test("timeout clamped to range")
     func timeoutClamped() {
         var settings = UttrSettings.default
-        settings.cloudPolish.timeoutSeconds = 1
+        settings.cloudPolish.timeoutSeconds = 0
         settings.sanitize()
-        #expect(settings.cloudPolish.timeoutSeconds == 3)
+        #expect(settings.cloudPolish.timeoutSeconds == 1)
 
         settings.cloudPolish.timeoutSeconds = 50
         settings.sanitize()
         #expect(settings.cloudPolish.timeoutSeconds == 20)
+    }
+
+    @Test("polish budget clamped to range")
+    func budgetClamped() {
+        var settings = UttrSettings.default
+        settings.cloudPolish.polishBudgetMs = 10
+        settings.sanitize()
+        #expect(settings.cloudPolish.polishBudgetMs == 50)
+
+        settings.cloudPolish.polishBudgetMs = 5000
+        settings.sanitize()
+        #expect(settings.cloudPolish.polishBudgetMs == 2000)
     }
 
     // MARK: - Active provider config
