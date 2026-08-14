@@ -6,6 +6,13 @@ import Testing
 @MainActor
 struct DictationControllerTests {
 
+    private struct StubPolisher: TextPolisher {
+        let result: String
+
+        func polish(_ transcript: String) async throws -> String { result }
+        func testConnection() async throws -> PolishTestResult { .success }
+    }
+
     struct Harness {
         let appState: AppState
         let recorder: MockAudioRecorder
@@ -206,6 +213,37 @@ struct DictationControllerTests {
         await waitUntil { appState.dictationState == .idle && !pasteService.pastedTexts.isEmpty }
         #expect(pasteService.pastedTexts == ["Hello world"])
         #expect(appState.lastTranscript == "Hello world")
+    }
+
+    @Test("cloud polish is applied after local cleanup")
+    func cloudPolishAppliedAfterLocal() async {
+        let appState = AppState()
+        let recorder = MockAudioRecorder()
+        let factory = MockEngineFactory()
+        let coordinator = TranscriptionCoordinator(
+            factory: factory,
+            availability: MockSystemSpeechAvailability(isSystemSpeechAvailable: false))
+        coordinator.configure(selection: .whisperKit, whisperModel: "small.en")
+        let pasteService = MockPasteService()
+        let controller = DictationController(
+            appState: appState,
+            recorder: recorder,
+            coordinator: coordinator,
+            pasteService: pasteService,
+            clock: MockDictationClock(),
+            localPolisherProvider: { StubPolisher(result: "Locally cleaned") },
+            cloudPolisherProvider: { StubPolisher(result: "Cloud cleaned") })
+        factory.whisperEngine.transcriptToReturn = "raw transcript"
+
+        appState.handle(.hotkeyDown)
+        controller.recordingStarted()
+        await waitUntil { recorder.startCount == 1 }
+        appState.handle(.hotkeyUp)
+        controller.recordingEnded()
+
+        await waitUntil { appState.dictationState == .idle && !pasteService.pastedTexts.isEmpty }
+        #expect(pasteService.pastedTexts == ["Cloud cleaned"])
+        #expect(appState.lastTranscript == "Cloud cleaned")
     }
 
     // MARK: - Max duration (spec §8: stop at 120 s, transcribe what we have)

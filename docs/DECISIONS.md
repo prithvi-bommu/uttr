@@ -198,3 +198,14 @@ Format defined in `UTTR_MASTER_AGENT_OPERATING_PROMPT.md`.
   - Once a Developer ID Application certificate is in use (M7), the designated requirement anchors to the stable certificate leaf, grants survive updates, and this caveat evaporates. At that point: flip `SUEnableAutomaticChecks` to `true`, optionally set `SUAllowsAutomaticUpdates` to `true`, and remove the Settings warning.
   - The EdDSA signing key (`SPARKLE_PRIVATE_KEY` repository secret) is critical infrastructure: if lost, every already-installed copy of Uttr becomes permanently un-updatable because they only trust the public key baked into their bundle.
 - Validation required: After M7, the maintainer must (1) verify that TCC permissions survive a Sparkle update with Developer ID signing, (2) flip `SUEnableAutomaticChecks` to `true` in `Info.plist`, (3) remove the `// TODO(M7)` warning from `GeneralSettingsView.swift`, and (4) update the README and RELEASE.md notes.
+
+---
+
+## ADR-012: Ship System Speech from Xcode 26 while retaining the macOS 15 deployment target
+
+- Date: 2026-08-14
+- Status: Accepted
+- Context: The README advertised automatic Apple System Speech on macOS 26+, but the production availability check and engine factory were still stubs. Xcode 26.6 and the macOS 26.5 SDK are now available locally and on GitHub's `macos-26` runner.
+- Decision: Implement `SpeechAnalyzerEngine` with `SpeechTranscriber`, in-memory `AnalyzerInput`, on-device asset installation, and locale reservation. Keep the application deployment target at macOS 15; runtime availability selects WhisperKit on older systems. CI and release builds move to macOS 26/Xcode 26.6 so the production System Speech path is compiled rather than conditionally omitted by an older compiler.
+- Consequences: macOS 26 users can use Apple System Speech without WhisperKit, while macOS 15–25 behavior is unchanged. Contributors need Xcode 26+ to compile the complete production feature set.
+- Validation required: run hold-to-talk dictation end to end on a physical macOS 26 Apple Silicon Mac, including first-time asset installation, repeated dictations, cancellation, and automatic fallback behavior when System Speech is unavailable.

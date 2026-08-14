@@ -9,11 +9,7 @@ protocol SystemSpeechAvailability: Sendable {
 
 struct RuntimeSystemSpeechAvailability: SystemSpeechAvailability {
     var isSystemSpeechAvailable: Bool {
-        // SpeechAnalyzer/SpeechTranscriber are macOS 26+ APIs and are absent
-        // from this project's current SDK (ADR-003/ADR-005). M5 replaces this
-        // with a real availability + model-installed check behind
-        // `if #available(macOS 26.0, *)`.
-        false
+        RuntimeSystemSpeechClient.isAvailable
     }
 }
 
@@ -29,8 +25,8 @@ struct DefaultTranscriptionEngineFactory: TranscriptionEngineFactory {
     }
 
     func makeSystemSpeechEngine() -> TranscriptionEngine? {
-        // No System Speech engine until M5 (ADR-003).
-        nil
+        guard RuntimeSystemSpeechClient.isAvailable else { return nil }
+        return SpeechAnalyzerEngine()
     }
 }
 

@@ -139,6 +139,39 @@ final class MockWhisperClient: WhisperTranscribing, @unchecked Sendable {
     }
 }
 
+/// Scriptable Apple System Speech client double.
+final class MockSystemSpeechClient: SystemSpeechTranscribing, @unchecked Sendable {
+    private let lock = NSLock()
+    var prepareError: Error?
+    var transcribeError: Error?
+    var textToReturn = "  system transcript \n"
+
+    private(set) var prepareCount = 0
+    private(set) var receivedAudio: [CapturedAudio] = []
+    private(set) var cancelCount = 0
+
+    func prepare() async throws {
+        let error = lock.withLock {
+            prepareCount += 1
+            return prepareError
+        }
+        if let error { throw error }
+    }
+
+    func transcribe(_ audio: CapturedAudio) async throws -> String {
+        let (error, text) = lock.withLock {
+            receivedAudio.append(audio)
+            return (transcribeError, textToReturn)
+        }
+        if let error { throw error }
+        return text
+    }
+
+    func cancelCurrentWork() async {
+        lock.withLock { cancelCount += 1 }
+    }
+}
+
 /// Records pasted text; scriptable success/failure.
 final class MockPasteService: PasteServicing, @unchecked Sendable {
     private let lock = NSLock()

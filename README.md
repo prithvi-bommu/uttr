@@ -68,8 +68,8 @@ After pasting, Uttr restores your previous plain-text clipboard content if no ot
 
 ## Build from source
 
-Prerequisites: Apple Silicon Mac, macOS 15+, and full Xcode **16.3 or newer**
-(the project format requires it). Activate Xcode once:
+Prerequisites: Apple Silicon Mac, macOS 15+, and full Xcode **26.0 or newer**
+(required for the macOS 26 System Speech implementation). Activate Xcode once:
 
 ```bash
 sudo xcode-select --switch /Applications/Xcode.app/Contents/Developer

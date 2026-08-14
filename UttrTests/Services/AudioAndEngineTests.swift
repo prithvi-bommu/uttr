@@ -131,3 +131,39 @@ struct WhisperKitEngineTests {
         }
     }
 }
+
+@Suite("SpeechAnalyzerEngine")
+struct SpeechAnalyzerEngineTests {
+    @Test("prepare delegates to the system speech client")
+    func prepareDelegates() async throws {
+        let client = MockSystemSpeechClient()
+        let engine = SpeechAnalyzerEngine(client: client)
+
+        try await engine.prepare()
+
+        #expect(client.prepareCount == 1)
+    }
+
+    @Test("transcribe keeps audio in memory and filters artifacts")
+    func transcribeDelegates() async throws {
+        let client = MockSystemSpeechClient()
+        client.textToReturn = "  hello from system speech  "
+        let engine = SpeechAnalyzerEngine(client: client)
+        let audio = CapturedAudio(samples: [0.1, 0.2], sampleRate: 16_000)
+
+        let text = try await engine.transcribe(audio)
+
+        #expect(text == "hello from system speech")
+        #expect(client.receivedAudio == [audio])
+    }
+
+    @Test("cancel delegates to the active system speech client")
+    func cancelDelegates() async {
+        let client = MockSystemSpeechClient()
+        let engine = SpeechAnalyzerEngine(client: client)
+
+        await engine.cancelCurrentWork()
+
+        #expect(client.cancelCount == 1)
+    }
+}

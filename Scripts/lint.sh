@@ -6,6 +6,6 @@ if command -v swiftlint &>/dev/null; then
 elif [ -f ".build/swiftlint/swiftlint" ]; then
     .build/swiftlint/swiftlint lint --strict
 else
-    echo "warning: SwiftLint not installed. Skipping lint."
-    exit 0
+    echo "error: SwiftLint is required. Install it with: brew install swiftlint" >&2
+    exit 127
 fi
