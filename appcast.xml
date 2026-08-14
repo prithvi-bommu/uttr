@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
+  <channel>
+    <title>Uttr</title>
+    <item>
+      <title>Uttr 0.0.1</title>
+      <pubDate>Fri, 14 Aug 2026 05:18:53 +0000</pubDate>
+      <sparkle:version>5</sparkle:version>
+      <sparkle:shortVersionString>0.0.1</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
+      <description><![CDATA[<p>Uttr 0.0.1 (build 5)</p>]]></description>
+      <enclosure url="https://github.com/prithvi-bommu/uttr/releases/download/latest/Uttr-0.0.1.dmg"
+       sparkle:edSignature="zcI8ZNmI1bmXtq6pWO5MbSL8/o87F/Es3up5HmksNK2B4nNGT1iz4B29jPJHTuFR/ICQoYU8JcZtoNO9GVWSBw=="
+       length="3053788"
+       type="application/octet-stream" />
+    </item>
+  </channel>
+</rss>
