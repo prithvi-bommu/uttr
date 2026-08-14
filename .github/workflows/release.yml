@@ -139,8 +139,8 @@ jobs:
           SIG_OUTPUT=$(./sparkle-tools/bin/sign_update -f "$KEY_FILE" "$DMG")
           echo "Signature output: $SIG_OUTPUT"
 
-          # Parse signature and length from the output.
-          ED_SIG=$(echo "$SIG_OUTPUT" | grep -oP 'sparkle:edSignature="\K[^"]+')
+          # Parse signature from the output (BSD grep compatible).
+          ED_SIG=$(echo "$SIG_OUTPUT" | sed -n 's/.*sparkle:edSignature="\([^"]*\)".*/\1/p')
           LENGTH=$(stat -f%z "$DMG" 2>/dev/null || stat --printf="%s" "$DMG")
 
           # Determine download URL.
