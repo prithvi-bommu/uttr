@@ -1,4 +1,4 @@
-import AVFoundation
+@preconcurrency import AVFoundation
 import Foundation
 import OSLog
 
@@ -14,8 +14,7 @@ protocol SystemSpeechTranscribing: Sendable {
 
 /// Apple on-device speech engine for macOS 26 and newer. The adapter keeps
 /// all audio in memory and presents the same `TranscriptionEngine` contract as
-/// WhisperKit, so automatic selection can switch engines without changing the
-/// dictation pipeline.
+/// WhisperKit, while keeping System Speech an explicit opt-in.
 final class SpeechAnalyzerEngine: TranscriptionEngine {
     let id: TranscriptionEngineID = .systemSpeech
 
@@ -100,9 +99,17 @@ private actor AppleSpeechAnalyzerClient: SystemSpeechTranscribing {
         guard let locale = preparedLocale else { throw UttrError.engineNotReady }
         guard audio.sampleRate > 0, !audio.samples.isEmpty else { return "" }
 
-        let format = try Self.audioFormat(sampleRate: audio.sampleRate)
-        let buffer = try Self.audioBuffer(samples: audio.samples, format: format)
+        let sourceFormat = try Self.audioFormat(sampleRate: audio.sampleRate)
         let transcriber = SpeechTranscriber(locale: locale, preset: .transcription)
+        guard let format = await SpeechAnalyzer.bestAvailableAudioFormat(
+            compatibleWith: [transcriber], considering: sourceFormat
+        ) else {
+            throw NSError(
+                domain: "com.uttr.app.system-speech", code: 3,
+                userInfo: [NSLocalizedDescriptionKey: "System Speech has no compatible audio format."])
+        }
+        let sourceBuffer = try Self.audioBuffer(samples: audio.samples, format: sourceFormat)
+        let buffer = try Self.convert(sourceBuffer, to: format)
         let analyzer = SpeechAnalyzer(modules: [transcriber])
         currentAnalyzer = analyzer
         defer { currentAnalyzer = nil }
@@ -163,7 +170,7 @@ private actor AppleSpeechAnalyzerClient: SystemSpeechTranscribing {
             let destination = buffer.floatChannelData?[0]
         else {
             throw NSError(
-                domain: "com.uttr.app.system-speech", code: 3,
+                domain: "com.uttr.app.system-speech", code: 4,
                 userInfo: [NSLocalizedDescriptionKey: "Could not create the speech audio buffer."])
         }
         buffer.frameLength = AVAudioFrameCount(samples.count)
@@ -172,6 +179,47 @@ private actor AppleSpeechAnalyzerClient: SystemSpeechTranscribing {
             destination.update(from: sourceAddress, count: source.count)
         }
         return buffer
+    }
+
+    /// SpeechAnalyzer may accept a different sample rate or PCM layout than
+    /// Uttr's fixed 16 kHz Float32 capture format. Convert before creating the
+    /// AnalyzerInput rather than relying on an internal conversion.
+    private nonisolated static func convert(
+        _ source: AVAudioPCMBuffer, to targetFormat: AVAudioFormat
+    ) throws -> AVAudioPCMBuffer {
+        guard source.format != targetFormat else { return source }
+        guard let converter = AVAudioConverter(from: source.format, to: targetFormat) else {
+            throw NSError(
+                domain: "com.uttr.app.system-speech", code: 5,
+                userInfo: [NSLocalizedDescriptionKey: "Could not convert audio for System Speech."])
+        }
+
+        let ratio = targetFormat.sampleRate / source.format.sampleRate
+        let capacity = AVAudioFrameCount((Double(source.frameLength) * ratio).rounded(.up) + 32)
+        guard let destination = AVAudioPCMBuffer(pcmFormat: targetFormat, frameCapacity: capacity) else {
+            throw NSError(
+                domain: "com.uttr.app.system-speech", code: 6,
+                userInfo: [NSLocalizedDescriptionKey: "Could not create converted speech audio buffer."])
+        }
+
+        var fedSource = false
+        var conversionError: NSError?
+        converter.convert(to: destination, error: &conversionError) { _, status in
+            if fedSource {
+                status.pointee = .noDataNow
+                return nil
+            }
+            fedSource = true
+            status.pointee = .haveData
+            return source
+        }
+        if let conversionError { throw conversionError }
+        guard destination.frameLength > 0 else {
+            throw NSError(
+                domain: "com.uttr.app.system-speech", code: 7,
+                userInfo: [NSLocalizedDescriptionKey: "System Speech audio conversion produced no samples."])
+        }
+        return destination
     }
 }
 #endif

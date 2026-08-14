@@ -31,7 +31,8 @@ struct DefaultTranscriptionEngineFactory: TranscriptionEngineFactory {
 }
 
 /// Selects and owns the active `TranscriptionEngine` per spec §8:
-/// - `automatic`: System Speech on macOS 26+ when available, else WhisperKit
+/// - `automatic`: WhisperKit. System Speech remains an explicit opt-in while
+///   its runtime integration is validated on macOS 26.
 /// - `systemSpeech`: System Speech, falling back to WhisperKit per dictation
 /// - `whisperKit`: always WhisperKit
 /// Prepares the active engine asynchronously, republishes preparation state
@@ -64,13 +65,13 @@ final class TranscriptionCoordinator {
         switch selection {
         case .whisperKit:
             return .whisperKit
-        case .automatic, .systemSpeech:
+        case .automatic:
+            return .whisperKit
+        case .systemSpeech:
             if availability.isSystemSpeechAvailable, factory.makeSystemSpeechEngine() != nil {
                 return .systemSpeech
             }
-            if selection == .systemSpeech {
-                logger.info("System Speech selected but unavailable — falling back to WhisperKit")
-            }
+            logger.info("System Speech selected but unavailable — falling back to WhisperKit")
             return .whisperKit
         }
     }

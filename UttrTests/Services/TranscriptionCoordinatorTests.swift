@@ -17,13 +17,13 @@ struct TranscriptionCoordinatorTests {
         #expect(coordinator.resolveEngineID(selection: .whisperKit) == .whisperKit)
     }
 
-    @Test("automatic resolves to system speech when available")
-    func automaticPrefersSystemSpeech() {
+    @Test("automatic resolves to WhisperKit even when System Speech is available")
+    func automaticUsesWhisperKit() {
         let coordinator = TranscriptionCoordinator(
             factory: MockEngineFactory(systemEngine: MockTranscriptionEngine(id: .systemSpeech)),
             availability: MockSystemSpeechAvailability(isSystemSpeechAvailable: true)
         )
-        #expect(coordinator.resolveEngineID(selection: .automatic) == .systemSpeech)
+        #expect(coordinator.resolveEngineID(selection: .automatic) == .whisperKit)
     }
 
     @Test("automatic falls back to WhisperKit when system speech unavailable")
