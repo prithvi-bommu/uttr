@@ -49,6 +49,7 @@
 
 /* Begin PBXBuildFile section */
 		A1B2C3D4E5F6071829304A5D /* WhisperKit in Frameworks */ = {isa = PBXBuildFile; productRef = A1B2C3D4E5F6071829304A5C /* WhisperKit */; };
+		8D307DACA0887C9D323CA976 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = 4EB5721DFDFFAB66BFC5E765 /* Sparkle */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -57,6 +58,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				A1B2C3D4E5F6071829304A5D /* WhisperKit in Frameworks */,
+				8D307DACA0887C9D323CA976 /* Sparkle in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -110,6 +112,7 @@
 			name = Uttr;
 			packageProductDependencies = (
 				A1B2C3D4E5F6071829304A5C /* WhisperKit */,
+				4EB5721DFDFFAB66BFC5E765 /* Sparkle */,
 			);
 			productName = Uttr;
 			productReference = 6165CF083023BC4E0085D938 /* Uttr.app */;
@@ -195,6 +198,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				A1B2C3D4E5F6071829304A5B /* XCRemoteSwiftPackageReference "WhisperKit" */,
+				D540DF137FECA3421A83E18F /* XCRemoteSwiftPackageReference "Sparkle" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = E0000002;
@@ -560,6 +564,14 @@
 				version = 1.0.0;
 			};
 		};
+		D540DF137FECA3421A83E18F /* XCRemoteSwiftPackageReference "Sparkle" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/sparkle-project/Sparkle.git";
+			requirement = {
+				kind = exactVersion;
+				version = 2.9.5;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -567,6 +579,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = A1B2C3D4E5F6071829304A5B /* XCRemoteSwiftPackageReference "WhisperKit" */;
 			productName = WhisperKit;
+		};
+		4EB5721DFDFFAB66BFC5E765 /* Sparkle */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = D540DF137FECA3421A83E18F /* XCRemoteSwiftPackageReference "Sparkle" */;
+			productName = Sparkle;
 		};
 /* End XCSwiftPackageProductDependency section */
 

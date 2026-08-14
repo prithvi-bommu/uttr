@@ -10,6 +10,7 @@ struct SettingsView: View {
     private let onTranscriptionChanged: (() -> Void)?
     private let onStartAtLoginChanged: ((Bool) -> Bool)?
     private let onAIConfigChanged: (() -> Void)?
+    private let updater: UpdaterServicing?
 
     init(
         store: ConfigurationStore,
@@ -20,7 +21,8 @@ struct SettingsView: View {
         transcriptionCoordinator: TranscriptionCoordinator? = nil,
         onTranscriptionChanged: (() -> Void)? = nil,
         onStartAtLoginChanged: ((Bool) -> Bool)? = nil,
-        onAIConfigChanged: (() -> Void)? = nil
+        onAIConfigChanged: (() -> Void)? = nil,
+        updater: UpdaterServicing? = nil
     ) {
         self._store = State(initialValue: store)
         self.appState = appState
@@ -31,6 +33,7 @@ struct SettingsView: View {
         self.onTranscriptionChanged = onTranscriptionChanged
         self.onStartAtLoginChanged = onStartAtLoginChanged
         self.onAIConfigChanged = onAIConfigChanged
+        self.updater = updater
     }
 
     var body: some View {
@@ -40,7 +43,8 @@ struct SettingsView: View {
                 appState: appState,
                 onBeginCapture: onBeginCapture,
                 onCancelCapture: onCancelCapture,
-                onStartAtLoginChanged: onStartAtLoginChanged
+                onStartAtLoginChanged: onStartAtLoginChanged,
+                updater: updater
             )
             .tabItem { Label("General", systemImage: "gear") }
 
