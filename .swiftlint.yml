@@ -3,10 +3,6 @@ included:
   - UttrTests
   - UttrUITests
 
-# Ratchet the pre-existing lint debt: CI fails on every new violation while
-# the recorded baseline can be paid down incrementally.
-baseline: .swiftlint-baseline.json
-
 excluded:
   - DerivedData
   - .build
