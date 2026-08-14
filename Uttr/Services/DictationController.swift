@@ -40,6 +40,9 @@ final class DictationController {
     /// settings change takes effect immediately without rebuilding the
     /// controller. Defaults to "never polish" for tests and older call sites.
     private let localPolisherProvider: @MainActor () -> TextPolisher?
+    /// Returns the optional cloud polisher selected in settings. Cloud polish
+    /// runs after local cleanup and fails open to the latest local transcript.
+    private let cloudPolisherProvider: @MainActor () -> TextPolisher?
     /// Returns the AI backend when AI-content mode is enabled and configured,
     /// or nil to fail the AI dictation. Evaluated per dictation.
     private let aiProvider: @MainActor () -> AIContentGenerating?
@@ -59,6 +62,7 @@ final class DictationController {
         clock: DictationClock = RealDictationClock(),
         metrics: DictationMetrics? = nil,
         localPolisherProvider: @escaping @MainActor () -> TextPolisher? = { nil },
+        cloudPolisherProvider: @escaping @MainActor () -> TextPolisher? = { nil },
         aiProvider: @escaping @MainActor () -> AIContentGenerating? = { nil }
     ) {
         self.appState = appState
@@ -68,6 +72,7 @@ final class DictationController {
         self.clock = clock
         self.metrics = metrics
         self.localPolisherProvider = localPolisherProvider
+        self.cloudPolisherProvider = cloudPolisherProvider
         self.aiProvider = aiProvider
     }
 
@@ -169,26 +174,25 @@ final class DictationController {
 
         appState.handle(.transcriptionCompleted(transcript))
 
-        // Optional local (offline) polish. Fail-open: any failure or an empty
-        // result falls back to the raw transcript. .polishCompleted /
-        // .polishFailed both route .polishing -> .pasting per the state machine.
+        // Optional local cleanup followed by optional cloud polish. Each stage
+        // fails open to the latest usable transcript.
         var finalText = transcript
-        if let polisher = localPolisherProvider() {
+        let polishers = [localPolisherProvider(), cloudPolisherProvider()].compactMap { $0 }
+        for polisher in polishers {
             do {
-                let polished = try await polisher.polish(transcript)
+                let polished = try await polisher.polish(finalText)
                     .trimmingCharacters(in: .whitespacesAndNewlines)
-                if polished.isEmpty {
-                    appState.handle(.polishFailed)
-                } else {
+                if !polished.isEmpty {
                     finalText = polished
-                    appState.handle(.polishCompleted(polished))
                 }
             } catch {
-                logger.error("Local polish failed: \(error.localizedDescription, privacy: .public)")
-                appState.handle(.polishFailed)
+                logger.error("Text polish failed open: \(error.localizedDescription, privacy: .public)")
             }
-        } else {
+        }
+        if finalText == transcript {
             appState.handle(.polishFailed)
+        } else {
+            appState.handle(.polishCompleted(finalText))
         }
 
         let pasted = await pasteService.paste(finalText)

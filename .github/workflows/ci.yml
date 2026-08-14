@@ -13,7 +13,7 @@ concurrency:
 jobs:
   build-and-test:
     name: Build & Test
-    runs-on: macos-15
+    runs-on: macos-26
     timeout-minutes: 30
 
     steps:
@@ -21,7 +21,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Select Xcode
-        run: sudo xcode-select -s /Applications/Xcode_16.4.app/Contents/Developer
+        run: sudo xcode-select -s /Applications/Xcode_26.6.app/Contents/Developer
 
       - name: Show environment
         run: |
@@ -37,11 +37,8 @@ jobs:
 
       - name: Lint
         run: |
-          if command -v swiftlint &>/dev/null; then
-            swiftlint lint --strict
-          else
-            echo "SwiftLint not available, skipping"
-          fi
+          command -v swiftlint &>/dev/null || brew install swiftlint
+          ./Scripts/lint.sh
 
       - name: Build
         run: |

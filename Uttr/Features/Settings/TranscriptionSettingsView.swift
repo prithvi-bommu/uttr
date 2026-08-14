@@ -16,13 +16,13 @@ struct TranscriptionSettingsView: View {
                     }
                 )) {
                     Text("Automatic").tag(TranscriptionEngineSelection.automatic)
-                    Text("System Speech (macOS 26+)").tag(TranscriptionEngineSelection.systemSpeech)
+                    Text("System Speech (Experimental; macOS 26+)").tag(TranscriptionEngineSelection.systemSpeech)
                     Text("WhisperKit").tag(TranscriptionEngineSelection.whisperKit)
                 }
                 .pickerStyle(.radioGroup)
 
                 if store.settings.transcriptionEngine == .automatic {
-                    Text("Uttr will use System Speech on macOS 26+ when available, otherwise WhisperKit.")
+                    Text("Uttr uses WhisperKit. System Speech is available as an opt-in on macOS 26+.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }

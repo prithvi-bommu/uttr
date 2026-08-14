@@ -57,12 +57,13 @@ struct PolishKeyTesterTests {
     final class MockHTTP: HTTPRequesting, @unchecked Sendable {
         var status = 200
         var error: Error?
+        var responseData = Data()
         private(set) var lastRequest: URLRequest?
 
         func send(_ request: URLRequest) async throws -> (Data, Int) {
             lastRequest = request
             if let error { throw error }
-            return (Data(), status)
+            return (responseData, status)
         }
     }
 
@@ -120,5 +121,59 @@ struct PolishKeyTesterTests {
             timeoutSeconds: 8)
         #expect(result == .unknownError("No provider selected"))
         #expect(http.lastRequest == nil)
+    }
+
+    // MARK: - Cloud polish providers
+
+    @Test("OpenAI polisher sends transcript and parses cleaned text")
+    func openAIPolisher() async throws {
+        let http = MockHTTP()
+        http.responseData = Data("""
+        {"choices":[{"message":{"content":"Cleaned transcript."}}]}
+        """.utf8)
+        let polisher = OpenAITextPolisher(
+            config: ProviderConfig(apiKey: "sk-test", model: "test-model"),
+            timeout: 8,
+            http: http)
+
+        let result = try await polisher.polish("um raw transcript")
+
+        #expect(result == "Cleaned transcript.")
+        #expect(http.lastRequest?.url?.absoluteString == "https://api.openai.com/v1/chat/completions")
+        #expect(http.lastRequest?.value(forHTTPHeaderField: "Authorization") == "Bearer sk-test")
+        let body = try #require(http.lastRequest?.httpBody)
+        let bodyText = try #require(String(bytes: body, encoding: .utf8))
+        #expect(bodyText.contains("um raw transcript"))
+    }
+
+    @Test("Anthropic polisher sends transcript and parses cleaned text")
+    func anthropicPolisher() async throws {
+        let http = MockHTTP()
+        http.responseData = Data("""
+        {"content":[{"type":"text","text":"Cleaned by Anthropic."}]}
+        """.utf8)
+        let polisher = AnthropicTextPolisher(
+            config: ProviderConfig(apiKey: "sk-ant", model: "test-model"),
+            timeout: 8,
+            http: http)
+
+        let result = try await polisher.polish("raw transcript")
+
+        #expect(result == "Cleaned by Anthropic.")
+        #expect(http.lastRequest?.url?.absoluteString == "https://api.anthropic.com/v1/messages")
+        #expect(http.lastRequest?.value(forHTTPHeaderField: "x-api-key") == "sk-ant")
+    }
+
+    @Test("cloud polisher factory requires an enabled, configured provider")
+    func cloudFactory() {
+        #expect(TextPolisherFactory.make(config: CloudPolishConfig()) == nil)
+
+        var enabled = CloudPolishConfig()
+        enabled.enabled = true
+        enabled.provider = .openAI
+        #expect(TextPolisherFactory.make(config: enabled) == nil)
+
+        enabled.openAI.apiKey = "sk-test"
+        #expect(TextPolisherFactory.make(config: enabled) is OpenAITextPolisher)
     }
 }

@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- macOS 26 System Speech engine backed by `SpeechAnalyzer`/`SpeechTranscriber`, including on-device asset preparation and automatic WhisperKit fallback on older systems
+- Working OpenAI and Anthropic cloud transcript polishers, wired after optional local cleanup with fail-open behavior
+- Unit coverage for cloud provider requests/parsing, pipeline ordering, and the System Speech adapter
 - Sparkle auto-update framework (v2.9.5) for over-the-air updates via EdDSA-signed appcast published to GitHub Pages (ADR-011)
 - "Check for Updates…" menu bar item with `NSApplication.activate` to ensure the update dialog is visible on `LSUIElement` apps
 - Settings → General → Updates section: toggle for automatic checks, Check Now button, last-checked date, and permission-loss warning for ad-hoc-signed builds
@@ -68,11 +71,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- CI and release builds now use macOS 26 with Xcode 26.6 so the System Speech implementation is compiled and tested
+- SwiftLint is a required CI gate with a portable checked-in baseline for existing debt; new violations fail the build
+- `Scripts/test.sh` now preserves the real `xcodebuild` exit status and works with or without `xcbeautify`
 - WhisperKit pinned to v1.0.0 (commit `25c62997041c134b03ca82731ce2f6fd2cae1eb9`, MIT); `CapturedAudio` will carry `[Float]` 16 kHz mono to match the engine's `transcribe(audioArrays:)` entry point
 
 ### Notes
 
-- SpeechAnalyzer/SpeechTranscriber remain **UNVERIFIED** for this project: absent from the macOS 15.0 SDK in Xcode 16.0 and unavailable at runtime on macOS 15.7.4. M3 uses WhisperKit; the engine stays runtime-configurable so M5 can add System Speech behind the existing `TranscriptionEngine` protocol (ADR-003, ADR-005)
+- SpeechAnalyzer/SpeechTranscriber compile against Xcode 26.6 and remain runtime-gated to macOS 26+. Physical end-to-end validation on a macOS 26 Mac is still required (ADR-012).
 
 ## [0.0.1] - 2026-08-05
 

@@ -26,14 +26,14 @@ struct MacOSCompatibilityTests {
         #expect(coordinator.resolveEngineID(selection: .automatic) == .whisperKit)
     }
 
-    @Test("automatic selection uses System Speech on macOS 26+ when available")
+    @Test("automatic selection uses WhisperKit on macOS 26+ while System Speech is opt-in")
     @MainActor func automaticOnTahoe() {
         let systemEngine = MockTranscriptionEngine(id: .systemSpeech)
         let coordinator = TranscriptionCoordinator(
             factory: MockEngineFactory(systemEngine: systemEngine),
             availability: MockSystemSpeechAvailability(isSystemSpeechAvailable: true)
         )
-        #expect(coordinator.resolveEngineID(selection: .automatic) == .systemSpeech)
+        #expect(coordinator.resolveEngineID(selection: .automatic) == .whisperKit)
     }
 
     @Test("systemSpeech selection degrades gracefully when System Speech unavailable")

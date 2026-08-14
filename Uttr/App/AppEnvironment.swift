@@ -32,6 +32,9 @@ final class AppEnvironment {
                 guard config.enabled else { return nil }
                 return RuleBasedTextPolisher(options: .init(config: config))
             },
+            cloudPolisherProvider: { [configStore] in
+                TextPolisherFactory.make(config: configStore.settings.cloudPolish)
+            },
             aiProvider: { [configStore] in
                 let config = configStore.settings.aiContent
                 guard config.enabled else { return nil }

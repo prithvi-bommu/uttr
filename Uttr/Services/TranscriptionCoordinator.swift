@@ -9,11 +9,7 @@ protocol SystemSpeechAvailability: Sendable {
 
 struct RuntimeSystemSpeechAvailability: SystemSpeechAvailability {
     var isSystemSpeechAvailable: Bool {
-        // SpeechAnalyzer/SpeechTranscriber are macOS 26+ APIs and are absent
-        // from this project's current SDK (ADR-003/ADR-005). M5 replaces this
-        // with a real availability + model-installed check behind
-        // `if #available(macOS 26.0, *)`.
-        false
+        RuntimeSystemSpeechClient.isAvailable
     }
 }
 
@@ -29,13 +25,14 @@ struct DefaultTranscriptionEngineFactory: TranscriptionEngineFactory {
     }
 
     func makeSystemSpeechEngine() -> TranscriptionEngine? {
-        // No System Speech engine until M5 (ADR-003).
-        nil
+        guard RuntimeSystemSpeechClient.isAvailable else { return nil }
+        return SpeechAnalyzerEngine()
     }
 }
 
 /// Selects and owns the active `TranscriptionEngine` per spec §8:
-/// - `automatic`: System Speech on macOS 26+ when available, else WhisperKit
+/// - `automatic`: WhisperKit. System Speech remains an explicit opt-in while
+///   its runtime integration is validated on macOS 26.
 /// - `systemSpeech`: System Speech, falling back to WhisperKit per dictation
 /// - `whisperKit`: always WhisperKit
 /// Prepares the active engine asynchronously, republishes preparation state
@@ -68,13 +65,13 @@ final class TranscriptionCoordinator {
         switch selection {
         case .whisperKit:
             return .whisperKit
-        case .automatic, .systemSpeech:
+        case .automatic:
+            return .whisperKit
+        case .systemSpeech:
             if availability.isSystemSpeechAvailable, factory.makeSystemSpeechEngine() != nil {
                 return .systemSpeech
             }
-            if selection == .systemSpeech {
-                logger.info("System Speech selected but unavailable — falling back to WhisperKit")
-            }
+            logger.info("System Speech selected but unavailable — falling back to WhisperKit")
             return .whisperKit
         }
     }
