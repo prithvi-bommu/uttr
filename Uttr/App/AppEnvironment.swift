@@ -39,6 +39,9 @@ final class AppEnvironment {
                 let config = configStore.settings.aiContent
                 guard config.enabled else { return nil }
                 return AIContentProviderFactory.make(config: config)
+            },
+            polishCoordinatorProvider: { [configStore] in
+                PolishCoordinator(budgetMs: configStore.settings.cloudPolish.polishBudgetMs)
             }
         )
         configureTranscription()

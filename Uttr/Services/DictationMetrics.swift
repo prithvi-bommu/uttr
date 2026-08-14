@@ -1,8 +1,5 @@
 import Foundation
 
-/// One redacted record per dictation attempt. Contains timings, sizes, and
-/// categories only — never transcript text, audio, or clipboard content
-/// (privacy contract §7/§11 and the operating prompt's reliability rules).
 struct DictationRecord: Identifiable, Equatable, Sendable {
     enum Result: String, Sendable {
         case completed
@@ -19,25 +16,30 @@ struct DictationRecord: Identifiable, Equatable, Sendable {
     let startedAt: Date
     let engineID: TranscriptionEngineID?
     let result: Result
-    /// Captured audio length in seconds (0 when recording never produced audio).
     let audioDurationSeconds: Double
-    /// Hotkey release → transcript available. Nil when transcription never ran.
-    let releaseToTranscriptMs: Int?
-    /// Hotkey release → paste completed. Nil when paste never ran.
-    let releaseToPasteMs: Int?
-    /// Transcript length in characters (never the content itself).
-    let transcriptCharacters: Int?
-    /// Whether the dictation hit the 120 s cap.
     let hitMaxDuration: Bool
+
+    // MARK: - Full pipeline timeline (ms, nil when stage didn't run)
+
+    let releaseToTranscriptMs: Int?
+    let transcriptToLocalCleanMs: Int?
+    let localCleanToAiRequestMs: Int?
+    let aiRequestToResponseMs: Int?
+    let responseToPasteMs: Int?
+    let releaseToPasteMs: Int?
+
+    // MARK: - Polish details
+
+    let polishOutcome: PolishOutcome?
+    let polisherSelected: String?
+    let configuredBudgetMs: Int?
+    let transcriptCharacters: Int?
 
     static func == (lhs: DictationRecord, rhs: DictationRecord) -> Bool {
         lhs.id == rhs.id
     }
 }
 
-/// In-memory, session-only store of the latest dictation records plus
-/// aggregate timings. Nothing is persisted to disk (operating prompt:
-/// "Store only aggregate timing/counter data in memory during a session").
 @MainActor
 @Observable
 final class DictationMetrics {
@@ -58,20 +60,40 @@ final class DictationMetrics {
         }
     }
 
-    /// Median release→paste over the retained completed records.
-    var medianReleaseToPasteMs: Int? {
-        percentileReleaseToPaste(0.5)
-    }
+    // MARK: - Release-to-paste percentiles
 
-    /// p95 release→paste over the retained completed records.
-    var p95ReleaseToPasteMs: Int? {
-        percentileReleaseToPaste(0.95)
-    }
+    var medianReleaseToPasteMs: Int? { percentileReleaseToPaste(0.5) }
+    var p95ReleaseToPasteMs: Int? { percentileReleaseToPaste(0.95) }
+    var p99ReleaseToPasteMs: Int? { percentileReleaseToPaste(0.99) }
 
     private func percentileReleaseToPaste(_ p: Double) -> Int? {
-        let values = records.compactMap(\.releaseToPasteMs).sorted()
+        let values = records
+            .filter { $0.result == .completed }
+            .compactMap(\.releaseToPasteMs)
+            .sorted()
         guard !values.isEmpty else { return nil }
         let rank = Int((Double(values.count - 1) * p).rounded())
         return values[rank]
+    }
+
+    // MARK: - Polish outcome rates
+
+    var fallbackRate: Double? {
+        rateOf(outcomes: [.deadlineFallback])
+    }
+
+    var providerFailureRate: Double? {
+        rateOf(outcomes: [.providerFailure])
+    }
+
+    var validationRejectionRate: Double? {
+        rateOf(outcomes: [.invalidResponse])
+    }
+
+    private func rateOf(outcomes: Set<PolishOutcome>) -> Double? {
+        let polished = records.compactMap(\.polishOutcome).filter { $0 != .noPolisher }
+        guard !polished.isEmpty else { return nil }
+        let matching = polished.filter { outcomes.contains($0) }
+        return Double(matching.count) / Double(polished.count)
     }
 }

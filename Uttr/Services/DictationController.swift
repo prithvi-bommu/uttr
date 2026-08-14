@@ -1,7 +1,6 @@
 import Foundation
 import OSLog
 
-/// Injectable clock for the max-duration timer so tests don't sleep.
 protocol DictationClock: Sendable {
     func sleep(for duration: TimeInterval) async throws
 }
@@ -12,21 +11,11 @@ struct RealDictationClock: DictationClock {
     }
 }
 
-/// What a dictation's transcript is for.
 enum DictationMode: Sendable {
-    /// Normal dictation: transcript (optionally polished) is pasted.
     case dictation
-    /// AI content: transcript is sent to the configured AI backend as a
-    /// prompt and the *response* is pasted.
     case aiContent
 }
 
-/// Drives the dictation transaction around `AppState`:
-/// hotkey down → start capture (+120 s limit timer)
-/// hotkey up   → stop capture → validate → transcribe → (polish M6) → paste
-/// escape      → cancel capture, no paste
-/// Every failure path returns AppState to `.idle` via the events it emits.
-/// Every attempt emits one redacted `DictationRecord` into `metrics`.
 @MainActor
 final class DictationController {
     private let appState: AppState
@@ -35,24 +24,17 @@ final class DictationController {
     private let pasteService: PasteServicing
     private let clock: DictationClock
     private let metrics: DictationMetrics?
-    /// Returns a local text polisher when offline cleanup is enabled in
-    /// settings, or nil to skip polishing. Evaluated per dictation so a
-    /// settings change takes effect immediately without rebuilding the
-    /// controller. Defaults to "never polish" for tests and older call sites.
     private let localPolisherProvider: @MainActor () -> TextPolisher?
-    /// Returns the optional cloud polisher selected in settings. Cloud polish
-    /// runs after local cleanup and fails open to the latest local transcript.
     private let cloudPolisherProvider: @MainActor () -> TextPolisher?
-    /// Returns the AI backend when AI-content mode is enabled and configured,
-    /// or nil to fail the AI dictation. Evaluated per dictation.
     private let aiProvider: @MainActor () -> AIContentGenerating?
+    private let polishCoordinatorProvider: @MainActor () -> PolishCoordinator
     private let logger = Logger(subsystem: "com.uttr.app", category: "dictation")
 
     private var maxDurationTask: Task<Void, Never>?
     private var pipelineTask: Task<Void, Never>?
     private var attemptStartedAt = Date()
-    /// Mode of the dictation currently in flight. Set by `recordingStarted`.
     private var currentMode: DictationMode = .dictation
+    private var currentSessionID = UUID()
 
     init(
         appState: AppState,
@@ -63,7 +45,8 @@ final class DictationController {
         metrics: DictationMetrics? = nil,
         localPolisherProvider: @escaping @MainActor () -> TextPolisher? = { nil },
         cloudPolisherProvider: @escaping @MainActor () -> TextPolisher? = { nil },
-        aiProvider: @escaping @MainActor () -> AIContentGenerating? = { nil }
+        aiProvider: @escaping @MainActor () -> AIContentGenerating? = { nil },
+        polishCoordinatorProvider: @escaping @MainActor () -> PolishCoordinator = { PolishCoordinator() }
     ) {
         self.appState = appState
         self.recorder = recorder
@@ -74,14 +57,15 @@ final class DictationController {
         self.localPolisherProvider = localPolisherProvider
         self.cloudPolisherProvider = cloudPolisherProvider
         self.aiProvider = aiProvider
+        self.polishCoordinatorProvider = polishCoordinatorProvider
     }
 
-    // MARK: - Hotkey entry points (called by AppEnvironment after AppState transitions)
+    // MARK: - Hotkey entry points
 
-    /// Call after AppState accepted `.hotkeyDown` (state is now .recording).
     func recordingStarted(mode: DictationMode = .dictation) {
         currentMode = mode
         attemptStartedAt = Date()
+        currentSessionID = UUID()
         pipelineTask = Task { [weak self] in
             guard let self else { return }
             do {
@@ -98,7 +82,6 @@ final class DictationController {
         }
     }
 
-    /// Call after AppState accepted `.hotkeyUp` (state is now .transcribing).
     func recordingEnded() {
         cancelMaxDurationTimer()
         pipelineTask = Task { [weak self] in
@@ -106,12 +89,12 @@ final class DictationController {
         }
     }
 
-    /// Call after AppState accepted `.escapePressed` (state returned to .idle).
     func recordingCancelled() {
         cancelMaxDurationTimer()
+        currentSessionID = UUID()
         pipelineTask = Task { [weak self] in
             await self?.recorder.cancelRecording()
-            self?.recordOutcome(.cancelled)
+            self?.recordOutcome(.cancelled, polishOutcome: .cancelled)
         }
     }
 
@@ -119,28 +102,14 @@ final class DictationController {
 
     private func finishDictation(hitMaxDuration: Bool) async {
         let releasedAt = Date()
+        let sessionID = currentSessionID
         let audio = await recorder.stopRecording()
         DebugFileLog.append("dictation", "Captured \(String(format: "%.2f", audio.duration))s of audio")
 
-        switch AudioPolicy.evaluate(audio) {
-        case .tooShort:
-            logger.info("Dictation rejected: too short (\(String(format: "%.2f", audio.duration), privacy: .public)s)")
-            DebugFileLog.append("dictation", "REJECTED: too short")
-            appState.handle(.noUsableAudio)
-            recordOutcome(.rejectedTooShort, audio: audio, hitMaxDuration: hitMaxDuration)
+        guard rejectUnusableAudio(audio, hitMaxDuration: hitMaxDuration) == nil else {
             return
-        case .noUsableAudio:
-            logger.info("Dictation rejected: no meaningful samples")
-            DebugFileLog.append("dictation", "REJECTED: no meaningful samples (mic silent? check Microphone permission)")
-            appState.handle(.noUsableAudio)
-            recordOutcome(.rejectedNoUsableAudio, audio: audio, hitMaxDuration: hitMaxDuration)
-            return
-        case .usable:
-            break
         }
 
-        // Short-but-usable clips are padded to a full decode window so the
-        // model isn't handed a sub-window it will drop or garble.
         let decodeAudio = AudioPolicy.rightPadded(audio)
 
         let transcript: String
@@ -173,41 +142,92 @@ final class DictationController {
         }
 
         appState.handle(.transcriptionCompleted(transcript))
+        let context = PipelineContext(
+            audio: audio, sessionID: sessionID,
+            releasedAt: releasedAt, transcriptAt: transcriptAt,
+            hitMaxDuration: hitMaxDuration)
+        await polishAndPaste(transcript: transcript, context: context)
+    }
 
-        // Optional local cleanup followed by optional cloud polish. Each stage
-        // fails open to the latest usable transcript.
-        var finalText = transcript
-        let polishers = [localPolisherProvider(), cloudPolisherProvider()].compactMap { $0 }
-        for polisher in polishers {
-            do {
-                let polished = try await polisher.polish(finalText)
-                    .trimmingCharacters(in: .whitespacesAndNewlines)
-                if !polished.isEmpty {
-                    finalText = polished
-                }
-            } catch {
-                logger.error("Text polish failed open: \(error.localizedDescription, privacy: .public)")
-            }
+    private struct PipelineContext {
+        let audio: CapturedAudio
+        let sessionID: UUID
+        let releasedAt: Date
+        let transcriptAt: Date
+        let hitMaxDuration: Bool
+    }
+
+    private func rejectUnusableAudio(
+        _ audio: CapturedAudio, hitMaxDuration: Bool
+    ) -> DictationRecord.Result? {
+        switch AudioPolicy.evaluate(audio) {
+        case .tooShort:
+            logger.info("Dictation rejected: too short")
+            DebugFileLog.append("dictation", "REJECTED: too short")
+            appState.handle(.noUsableAudio)
+            recordOutcome(.rejectedTooShort, audio: audio, hitMaxDuration: hitMaxDuration)
+            return .rejectedTooShort
+        case .noUsableAudio:
+            logger.info("Dictation rejected: no meaningful samples")
+            DebugFileLog.append("dictation", "REJECTED: no meaningful samples")
+            appState.handle(.noUsableAudio)
+            recordOutcome(.rejectedNoUsableAudio, audio: audio, hitMaxDuration: hitMaxDuration)
+            return .rejectedNoUsableAudio
+        case .usable:
+            return nil
         }
-        if finalText == transcript {
-            appState.handle(.polishFailed)
-        } else {
-            appState.handle(.polishCompleted(finalText))
+    }
+
+    private func polishAndPaste(transcript: String, context: PipelineContext) async {
+        let localText = await applyLocalPolish(transcript)
+        let localCleanAt = Date()
+
+        let cloudPolisher = cloudPolisherProvider()
+        let polishCoord = polishCoordinatorProvider()
+        let polishResult = await polishCoord.polish(
+            localText: localText, cloudPolisher: cloudPolisher,
+            sessionID: context.sessionID)
+
+        guard context.sessionID == currentSessionID else {
+            logger.info("Session \(context.sessionID) superseded — discarding result")
+            return
         }
 
+        let finalText = polishResult.text
+        appState.handle(finalText == transcript ? .polishFailed : .polishCompleted(finalText))
+
+        let pasteStartedAt = Date()
         let pasted = await pasteService.paste(finalText)
         appState.handle(pasted ? .pasteCompleted : .pasteFailed)
-        recordOutcome(pasted ? .completed : .pasteFailed,
-                      audio: audio, releasedAt: releasedAt, transcriptAt: transcriptAt,
-                      pastedAt: Date(), transcriptCharacters: finalText.count,
-                      hitMaxDuration: hitMaxDuration)
+
+        recordOutcome(
+            pasted ? .completed : .pasteFailed,
+            audio: context.audio, releasedAt: context.releasedAt,
+            transcriptAt: context.transcriptAt, localCleanAt: localCleanAt,
+            aiRequestStartedAt: polishResult.aiRequestStartedAt,
+            aiResponseReceivedAt: polishResult.aiResponseReceivedAt,
+            pasteStartedAt: pasteStartedAt, pastedAt: Date(),
+            transcriptCharacters: finalText.count,
+            hitMaxDuration: context.hitMaxDuration,
+            polishOutcome: polishResult.outcome,
+            polisherSelected: cloudPolisher.map { String(describing: type(of: $0)) },
+            configuredBudgetMs: polishCoord.budgetMs)
+    }
+
+    private func applyLocalPolish(_ transcript: String) async -> String {
+        guard let polisher = localPolisherProvider() else { return transcript }
+        do {
+            let polished = try await polisher.polish(transcript)
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            return polished.isEmpty ? transcript : polished
+        } catch {
+            logger.error("Local polish failed open: \(error.localizedDescription, privacy: .public)")
+            return transcript
+        }
     }
 
     // MARK: - AI content stage
 
-    /// Sends the spoken prompt to the configured AI backend and pastes the
-    /// response. Only the transcribed text leaves the machine, never audio.
-    /// Failures return to idle without pasting anything.
     private func runAIContent(
         prompt: String, audio: CapturedAudio,
         releasedAt: Date, transcriptAt: Date, hitMaxDuration: Bool
@@ -215,7 +235,7 @@ final class DictationController {
         guard let provider = aiProvider() else {
             logger.error("AI content requested but no provider is configured")
             DebugFileLog.append("dictation", "AI FAILED: no provider configured")
-            appState.handle(.transcriptionFailed) // transcribing -> idle
+            appState.handle(.transcriptionFailed)
             recordOutcome(.transcriptionFailed, audio: audio, hitMaxDuration: hitMaxDuration)
             return
         }
@@ -248,9 +268,16 @@ final class DictationController {
         audio: CapturedAudio? = nil,
         releasedAt: Date? = nil,
         transcriptAt: Date? = nil,
+        localCleanAt: Date? = nil,
+        aiRequestStartedAt: Date? = nil,
+        aiResponseReceivedAt: Date? = nil,
+        pasteStartedAt: Date? = nil,
         pastedAt: Date? = nil,
         transcriptCharacters: Int? = nil,
-        hitMaxDuration: Bool = false
+        hitMaxDuration: Bool = false,
+        polishOutcome: PolishOutcome? = nil,
+        polisherSelected: String? = nil,
+        configuredBudgetMs: Int? = nil
     ) {
         guard let metrics else { return }
         func ms(_ from: Date?, _ to: Date?) -> Int? {
@@ -262,14 +289,21 @@ final class DictationController {
             engineID: coordinator.activeEngineID,
             result: result,
             audioDurationSeconds: audio?.duration ?? 0,
+            hitMaxDuration: hitMaxDuration,
             releaseToTranscriptMs: ms(releasedAt, transcriptAt),
+            transcriptToLocalCleanMs: ms(transcriptAt, localCleanAt),
+            localCleanToAiRequestMs: ms(localCleanAt, aiRequestStartedAt),
+            aiRequestToResponseMs: ms(aiRequestStartedAt, aiResponseReceivedAt),
+            responseToPasteMs: ms(aiResponseReceivedAt ?? localCleanAt, pasteStartedAt),
             releaseToPasteMs: ms(releasedAt, pastedAt),
-            transcriptCharacters: transcriptCharacters,
-            hitMaxDuration: hitMaxDuration
+            polishOutcome: polishOutcome,
+            polisherSelected: polisherSelected,
+            configuredBudgetMs: configuredBudgetMs,
+            transcriptCharacters: transcriptCharacters
         ))
     }
 
-    // MARK: - Max duration (spec §8: stop at 120 s and transcribe what we have)
+    // MARK: - Max duration
 
     private func startMaxDurationTimer() {
         maxDurationTask = Task { [weak self] in
@@ -277,7 +311,7 @@ final class DictationController {
             do {
                 try await clock.sleep(for: AudioPolicy.maximumDuration)
             } catch {
-                return // cancelled — normal release beat the limit
+                return
             }
             guard appState.dictationState.isRecording else { return }
             logger.info("Max recording duration reached — stopping and transcribing")
