@@ -11,13 +11,18 @@ struct PermissionsSettingsView: View {
     var body: some View {
         Form {
             Section("Required Permissions") {
-                permissionRow(
+                permissionRowWithRepair(
                     title: "Microphone",
                     description: "Required to capture your voice during dictation.",
                     status: micStatus,
                     requestAction: {
                         Task { @MainActor in
                             micStatus = await permissionService.requestMicrophone()
+                        }
+                    },
+                    repairAction: {
+                        Task { @MainActor in
+                            micStatus = await permissionService.repairMicrophone()
                         }
                     },
                     action: { permissionService.openMicrophoneSettings() }
@@ -29,6 +34,10 @@ struct PermissionsSettingsView: View {
                     status: inputStatus,
                     requestAction: {
                         permissionService.requestInputMonitoring()
+                        refreshStatus()
+                    },
+                    repairAction: {
+                        permissionService.repairInputMonitoring()
                         refreshStatus()
                     },
                     action: {
@@ -76,15 +85,15 @@ struct PermissionsSettingsView: View {
         description: String,
         status: PermissionStatus,
         requestAction: @escaping () -> Void,
+        repairAction: @escaping () -> Void,
         action: @escaping () -> Void
     ) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             permissionRow(title: title, description: description, status: status,
                           requestAction: requestAction, action: action)
             if status != .granted {
-                Button("Uttr missing from the pane? Repair & re-request") {
-                    permissionService.repairInputMonitoring()
-                    refreshStatus()
+                Button("Not working? Repair & re-request") {
+                    repairAction()
                 }
                 .buttonStyle(.link)
                 .font(.caption)

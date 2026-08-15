@@ -20,6 +20,7 @@ final class AppEnvironment {
 
     private init() {
         configStore.load()
+        repairPermissionsAfterUpdate()
         recordingIndicator = RecordingIndicatorController(recorder: recorder)
         dictationController = DictationController(
             appState: appState,
@@ -179,6 +180,19 @@ final class AppEnvironment {
             keyCode: config.hotkey.keyCode,
             modifiers: Set(config.hotkey.modifiers)
         ))
+    }
+
+    private func repairPermissionsAfterUpdate() {
+        let key = "lastKnownBuildVersion"
+        let current = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? ""
+        let previous = UserDefaults.standard.string(forKey: key) ?? ""
+        UserDefaults.standard.set(current, forKey: key)
+        guard current != previous, !previous.isEmpty else { return }
+        guard permissionService.microphoneStatus() == .notGranted else { return }
+        logger.info("Build changed (\(previous) → \(current)); resetting stale microphone TCC record")
+        Task { @MainActor in
+            _ = await permissionService.repairMicrophone()
+        }
     }
 
     func checkPermissions() -> PermissionBlocker? {
