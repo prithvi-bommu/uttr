@@ -2,6 +2,7 @@ import AVFoundation
 import AppKit
 import ApplicationServices
 import Foundation
+import OSLog
 
 enum PermissionStatus: Equatable, Sendable {
     case granted
@@ -45,6 +46,8 @@ protocol PermissionChecking: Sendable {
 }
 
 struct RealPermissionService: PermissionChecking {
+    private static let logger = Logger(subsystem: "com.uttr.app", category: "permissions")
+
     func microphoneStatus() -> PermissionStatus {
         switch AVCaptureDevice.authorizationStatus(for: .audio) {
         case .authorized: .granted
@@ -90,12 +93,38 @@ struct RealPermissionService: PermissionChecking {
 
     func repairMicrophone() async -> PermissionStatus {
         guard microphoneStatus() != .granted else { return .granted }
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/tccutil")
-        process.arguments = ["reset", "Microphone", "com.uttr.app"]
-        try? process.run()
-        process.waitUntilExit()
-        return await requestMicrophone()
+        let before = AVCaptureDevice.authorizationStatus(for: .audio)
+        Self.logger.notice("repairMicrophone: status before reset = \(String(describing: before), privacy: .public)")
+
+        let tccResult: (exit: Int32, output: String) = await withCheckedContinuation { cont in
+            DispatchQueue.global(qos: .userInitiated).async {
+                let proc = Process()
+                proc.executableURL = URL(fileURLWithPath: "/usr/bin/tccutil")
+                proc.arguments = ["reset", "Microphone", "com.uttr.app"]
+                let pipe = Pipe()
+                proc.standardOutput = pipe
+                proc.standardError = pipe
+                do {
+                    try proc.run()
+                    proc.waitUntilExit()
+                    let data = pipe.fileHandleForReading.readDataToEndOfFile()
+                    let out = String(data: data, encoding: .utf8) ?? ""
+                    cont.resume(returning: (proc.terminationStatus, out))
+                } catch {
+                    cont.resume(returning: (-1, "launch failed: \(error.localizedDescription)"))
+                }
+            }
+        }
+        let exitCode = tccResult.exit
+        let tccOut = tccResult.output
+        Self.logger.notice("repairMicrophone: tccutil exit=\(exitCode) output=\(tccOut, privacy: .public)")
+
+        let after = AVCaptureDevice.authorizationStatus(for: .audio)
+        Self.logger.notice("repairMicrophone: status after reset = \(String(describing: after), privacy: .public)")
+
+        let result = await requestMicrophone()
+        Self.logger.notice("repairMicrophone: final status = \(String(describing: result), privacy: .public)")
+        return result
     }
 
     func repairInputMonitoring() {
