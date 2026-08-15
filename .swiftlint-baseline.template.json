@@ -38,7 +38,7 @@
       "severity": "error",
       "location": {
         "file": "file://__REPO_ROOT__/Uttr/App/AppEnvironment.swift",
-        "line": 124,
+        "line": 123,
         "character": 13
       },
       "ruleIdentifier": "cyclomatic_complexity"
