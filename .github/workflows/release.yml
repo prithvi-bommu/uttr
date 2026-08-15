@@ -80,14 +80,14 @@ jobs:
 
           # Self-signed certs have no trusted root, so `find-identity -p
           # codesigning` won't surface them without an explicit trust record.
-          # `add-trusted-cert` normally prompts a GUI confirmation; relaxing
-          # the trust-settings authorization right lets it run unattended.
+          # Trusting into the *user* domain (no `-d`) applies only to this
+          # keychain/user and needs no admin authorization, so it runs
+          # unattended; the admin domain (`-d`) requires an authorization
+          # that has no non-interactive path on a CI runner.
           openssl pkcs12 -legacy -in "$CERTIFICATE_PATH" \
             -passin "pass:$UTTR_SIGNING_CERTIFICATE_P12_PASSWORD" \
             -nokeys -out "$CERT_PEM"
-          sudo security authorizationdb write com.apple.trust-settings.admin allow
-          security add-trusted-cert -d -r trustRoot -p codeSign -k "$KEYCHAIN_PATH" "$CERT_PEM"
-          sudo security authorizationdb remove com.apple.trust-settings.admin
+          security add-trusted-cert -r trustRoot -p codeSign -k "$KEYCHAIN_PATH" "$CERT_PEM"
 
           IDENTITY=$(security find-identity -v -p codesigning "$KEYCHAIN_PATH" | sed -n 's/.*"\([^"]*Uttr[^\"]*\)".*/\1/p' | head -1)
           test -n "$IDENTITY" || {
