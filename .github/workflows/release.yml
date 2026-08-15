@@ -109,6 +109,14 @@ jobs:
             OTHER_CODE_SIGN_FLAGS="--timestamp --options runtime" \
             CURRENT_PROJECT_VERSION=${{ github.run_number }}
 
+      - name: Re-sign embedded frameworks
+        run: |
+          APP="build/release/Build/Products/Release/Uttr.app"
+          IDENTITY="${{ steps.signing.outputs.identity }}"
+          find "$APP/Contents/Frameworks" \( -name "*.xpc" -o -name "*.app" \) -print0 | xargs -0 -I{} codesign --force --sign "$IDENTITY" --timestamp --options runtime "{}"
+          find "$APP/Contents/Frameworks" -name "*.framework" -print0 | xargs -0 -I{} codesign --force --sign "$IDENTITY" --timestamp --options runtime "{}"
+          codesign --force --sign "$IDENTITY" --timestamp --options runtime --entitlements Uttr/Supporting/Uttr.entitlements "$APP"
+
       - name: Verify stable release signing
         run: |
           APP="build/release/Build/Products/Release/Uttr.app"
