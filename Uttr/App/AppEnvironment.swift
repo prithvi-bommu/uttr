@@ -187,9 +187,9 @@ final class AppEnvironment {
         let current = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? ""
         let previous = UserDefaults.standard.string(forKey: key) ?? ""
         UserDefaults.standard.set(current, forKey: key)
-        guard current != previous, !previous.isEmpty else { return }
+        guard current != previous else { return }
         guard permissionService.microphoneStatus() == .notGranted else { return }
-        logger.info("Build changed (\(previous) → \(current)); resetting stale microphone TCC record")
+        DebugFileLog.append("app", "Build changed (\(previous) → \(current)); repairing stale microphone TCC record")
         Task { @MainActor in
             _ = await permissionService.repairMicrophone()
         }
