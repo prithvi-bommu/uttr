@@ -38,7 +38,7 @@
       "severity": "error",
       "location": {
         "file": "file://__REPO_ROOT__/Uttr/App/AppEnvironment.swift",
-        "line": 117,
+        "line": 124,
         "character": 13
       },
       "ruleIdentifier": "cyclomatic_complexity"
@@ -596,21 +596,6 @@
         "character": 13
       },
       "ruleIdentifier": "identifier_name"
-    }
-  },
-  {
-    "text": "                Text(\"After granting Input Monitoring or Accessibility permissions, you may need to quit and reopen Uttr for the change to take effect.\")",
-    "violation": {
-      "reason": "Line should be 120 characters or less; currently it has 153 characters",
-      "ruleDescription": "Lines should not span too many characters.",
-      "ruleName": "Line Length",
-      "severity": "error",
-      "location": {
-        "file": "file://__REPO_ROOT__/Uttr/Features/Settings/PermissionsSettingsView.swift",
-        "line": 53,
-        "character": 1
-      },
-      "ruleIdentifier": "line_length"
     }
   },
   {

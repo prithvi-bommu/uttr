@@ -11,55 +11,64 @@ struct PermissionsSettingsView: View {
     var body: some View {
         Form {
             Section("Required Permissions") {
-                permissionRowWithRepair(
+                permissionRow(
                     title: "Microphone",
                     description: "Required to capture your voice during dictation.",
                     status: micStatus,
-                    requestAction: {
-                        Task { @MainActor in
-                            micStatus = await permissionService.requestMicrophone()
-                        }
-                    },
-                    repairAction: {
-                        Task { @MainActor in
-                            micStatus = await permissionService.repairMicrophone()
-                        }
-                    },
-                    action: { permissionService.openMicrophoneSettings() }
+                    actions: .init(
+                        request: {
+                            Task { @MainActor in
+                                micStatus = await permissionService.requestMicrophone()
+                            }
+                        },
+                        repair: {
+                            Task { @MainActor in
+                                micStatus = await permissionService.repairMicrophone()
+                            }
+                        },
+                        openSettings: { permissionService.openMicrophoneSettings() }
+                    )
                 )
 
-                permissionRowWithRepair(
+                permissionRow(
                     title: "Input Monitoring",
                     description: "Required to detect your global dictation shortcut.",
                     status: inputStatus,
-                    requestAction: {
-                        permissionService.requestInputMonitoring()
-                        refreshStatus()
-                    },
-                    repairAction: {
-                        permissionService.repairInputMonitoring()
-                        refreshStatus()
-                    },
-                    action: {
-                        permissionService.openInputMonitoringSettings()
-                        permissionService.revealAppForManualAdd()
-                    }
+                    actions: .init(
+                        request: {
+                            permissionService.requestInputMonitoring()
+                            refreshStatus()
+                        },
+                        repair: {
+                            permissionService.repairInputMonitoring()
+                            refreshStatus()
+                        },
+                        openSettings: {
+                            permissionService.openInputMonitoringSettings()
+                            permissionService.revealAppForManualAdd()
+                        }
+                    )
                 )
 
                 permissionRow(
                     title: "Accessibility",
                     description: "Required to paste transcribed text into other applications.",
                     status: accessibilityStatus,
-                    requestAction: {
-                        permissionService.requestAccessibility()
-                        refreshStatus()
-                    },
-                    action: { permissionService.openAccessibilitySettings() }
+                    actions: .init(
+                        request: {
+                            permissionService.requestAccessibility()
+                            refreshStatus()
+                        },
+                        openSettings: { permissionService.openAccessibilitySettings() }
+                    )
                 )
             }
 
             Section {
-                Text("After granting Input Monitoring or Accessibility permissions, you may need to quit and reopen Uttr for the change to take effect.")
+                Text(
+                    "After granting Input Monitoring or Accessibility permissions,"
+                    + " you may need to quit and reopen Uttr for the change to take effect."
+                )
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -74,30 +83,7 @@ struct PermissionsSettingsView: View {
                 for: NSApplication.didBecomeActiveNotification
             )
         ) { _ in
-            // Re-check after the user returns from System Settings (spec §9).
             refreshStatus()
-        }
-    }
-
-    @ViewBuilder
-    private func permissionRowWithRepair(
-        title: String,
-        description: String,
-        status: PermissionStatus,
-        requestAction: @escaping () -> Void,
-        repairAction: @escaping () -> Void,
-        action: @escaping () -> Void
-    ) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            permissionRow(title: title, description: description, status: status,
-                          requestAction: requestAction, action: action)
-            if status != .granted {
-                Button("Not working? Repair & re-request") {
-                    repairAction()
-                }
-                .buttonStyle(.link)
-                .font(.caption)
-            }
         }
     }
 
@@ -106,31 +92,39 @@ struct PermissionsSettingsView: View {
         title: String,
         description: String,
         status: PermissionStatus,
-        requestAction: @escaping () -> Void,
-        action: @escaping () -> Void
+        actions: PermissionActions
     ) -> some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 2) {
-                HStack {
-                    Text(title)
-                        .fontWeight(.medium)
-                    statusBadge(status)
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack {
+                        Text(title)
+                            .fontWeight(.medium)
+                        statusBadge(status)
+                    }
+                    Text(description)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
-                Text(description)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-            Spacer()
-            if status != .granted {
-                Button("Request Access") {
-                    requestAction()
+                Spacer()
+                if status != .granted {
+                    Button("Request Access") {
+                        actions.request()
+                    }
+                }
+                Button("Open System Settings") {
+                    actions.openSettings()
                 }
             }
-            Button("Open System Settings") {
-                action()
+            .accessibilityIdentifier("permission-\(title.lowercased())")
+            if status != .granted, let repair = actions.repair {
+                Button("Not working? Repair & re-request") {
+                    repair()
+                }
+                .buttonStyle(.link)
+                .font(.caption)
             }
         }
-        .accessibilityIdentifier("permission-\(title.lowercased())")
     }
 
     @ViewBuilder
@@ -155,5 +149,21 @@ struct PermissionsSettingsView: View {
         micStatus = permissionService.microphoneStatus()
         inputStatus = permissionService.inputMonitoringStatus()
         accessibilityStatus = permissionService.accessibilityStatus()
+    }
+}
+
+private struct PermissionActions {
+    let request: () -> Void
+    let repair: (() -> Void)?
+    let openSettings: () -> Void
+
+    init(
+        request: @escaping () -> Void,
+        repair: (() -> Void)? = nil,
+        openSettings: @escaping () -> Void
+    ) {
+        self.request = request
+        self.repair = repair
+        self.openSettings = openSettings
     }
 }
