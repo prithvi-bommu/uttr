@@ -189,7 +189,9 @@ final class AppEnvironment {
         UserDefaults.standard.set(current, forKey: key)
         guard current != previous else { return }
         guard permissionService.microphoneStatus() == .notGranted else { return }
-        DebugFileLog.append("app", "Build changed (\(previous) → \(current)); repairing stale microphone TCC record")
+        let msg = "Build changed (\(previous) → \(current)); repairing stale mic TCC"
+        logger.info("\(msg, privacy: .public)")
+        DebugFileLog.append("app", msg)
         Task { @MainActor in
             _ = await permissionService.repairMicrophone()
         }
