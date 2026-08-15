@@ -123,7 +123,13 @@ struct OnboardingView: View {
                 }
             },
             action: { permissionService.openMicrophoneSettings() },
-            actionLabel: "Open System Settings"
+            actionLabel: "Open System Settings",
+            repairLabel: "No prompt appeared? Repair & re-request",
+            repairAction: {
+                Task { @MainActor in
+                    micStatus = await permissionService.repairMicrophone()
+                }
+            }
         )
     }
 
