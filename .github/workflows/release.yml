@@ -67,6 +67,8 @@ jobs:
           KEYCHAIN_PATH="$RUNNER_TEMP/uttr-signing.keychain-db"
           KEYCHAIN_PASSWORD=$(openssl rand -base64 32)
 
+          CERT_PEM="$RUNNER_TEMP/uttr-release-signing.cert.pem"
+
           printf '%s' "$UTTR_SIGNING_CERTIFICATE_P12_BASE64" | base64 -D > "$CERTIFICATE_PATH"
           security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
           security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
@@ -75,6 +77,17 @@ jobs:
           security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
           security list-keychain -d user -s "$KEYCHAIN_PATH"
           security default-keychain -s "$KEYCHAIN_PATH"
+
+          # Self-signed certs have no trusted root, so `find-identity -p
+          # codesigning` won't surface them without an explicit trust record.
+          # `add-trusted-cert` normally prompts a GUI confirmation; relaxing
+          # the trust-settings authorization right lets it run unattended.
+          openssl pkcs12 -legacy -in "$CERTIFICATE_PATH" \
+            -passin "pass:$UTTR_SIGNING_CERTIFICATE_P12_PASSWORD" \
+            -nokeys -out "$CERT_PEM"
+          sudo security authorizationdb write com.apple.trust-settings.admin allow
+          security add-trusted-cert -d -r trustRoot -p codeSign -k "$KEYCHAIN_PATH" "$CERT_PEM"
+          sudo security authorizationdb remove com.apple.trust-settings.admin
 
           IDENTITY=$(security find-identity -v -p codesigning "$KEYCHAIN_PATH" | sed -n 's/.*"\([^"]*Uttr[^\"]*\)".*/\1/p' | head -1)
           test -n "$IDENTITY" || {
