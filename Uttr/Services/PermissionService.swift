@@ -24,6 +24,10 @@ protocol PermissionChecking: Sendable {
     ///   prompt was shown (grant requires a relaunch to take effect).
     @discardableResult
     func requestAccessibility() -> Bool
+    /// Clears Uttr's own stale Microphone record and re-requests.
+    /// After a signing identity change macOS may leave a stale "denied"
+    /// record that prevents the system prompt from reappearing.
+    func repairMicrophone() async -> PermissionStatus
     /// Clears Uttr's own stale Input Monitoring record and re-requests.
     /// Fixes the "pane opens but Uttr isn't listed" dead end that stale
     /// records from earlier (differently-signed) builds cause: macOS refuses
@@ -82,6 +86,16 @@ struct RealPermissionService: PermissionChecking {
         // AXUIElement.h); the SDK global var is not concurrency-safe under Swift 6.
         let options = ["AXTrustedCheckOptionPrompt": true] as CFDictionary
         return AXIsProcessTrustedWithOptions(options)
+    }
+
+    func repairMicrophone() async -> PermissionStatus {
+        guard microphoneStatus() != .granted else { return .granted }
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/tccutil")
+        process.arguments = ["reset", "Microphone", "com.uttr.app"]
+        try? process.run()
+        process.waitUntilExit()
+        return await requestMicrophone()
     }
 
     func repairInputMonitoring() {

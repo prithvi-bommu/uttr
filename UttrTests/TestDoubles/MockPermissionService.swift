@@ -34,6 +34,12 @@ final class MockPermissionService: PermissionChecking, @unchecked Sendable {
         return requestAccessResult
     }
 
+    var repairMicCalled = false
+    func repairMicrophone() async -> PermissionStatus {
+        repairMicCalled = true
+        return requestMicResult
+    }
+
     var repairInputCalled = false
     func repairInputMonitoring() { repairInputCalled = true }
 
