@@ -59,3 +59,18 @@ Create issues with `gh issue create --repo prithvi-bommu/uttr`, using a heredoc 
 ## Commits and pull requests
 
 Do not add "Generated with" attribution, co-author trailers, or tool branding to commits, pull requests, or code.
+
+## Release and automatic updates
+
+Every merge to `main` triggers `.github/workflows/release.yml`, which builds the rolling `latest` DMG and publishes its Sparkle appcast. Installed copies of Uttr use that appcast for **Check for Updates**.
+
+Treat the following as release-critical. Do not modify them unless the task explicitly requires it:
+
+- `.github/workflows/release.yml`
+- Sparkle configuration, including `SUPublicEDKey` and the appcast URL
+- `SPARKLE_PRIVATE_KEY` usage
+- The `Uttr Release Signing` certificate identity or the app bundle identifier
+
+Repository secrets are configured once in GitHub; contributors and agents on other machines must not add, replace, print, or commit signing certificates, P12 passwords, or Sparkle private keys. Normal application changes need no release-specific setup.
+
+When a task does change release-critical code, preserve the automatic DMG/appcast pipeline. Validate the PR build, then verify that the subsequent merge to `main` publishes the `latest` DMG and that the appcast’s Sparkle signature still validates before considering the work complete.
