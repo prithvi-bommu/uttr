@@ -93,38 +93,30 @@ struct RealPermissionService: PermissionChecking {
 
     func repairMicrophone() async -> PermissionStatus {
         guard microphoneStatus() != .granted else { return .granted }
-        let before = AVCaptureDevice.authorizationStatus(for: .audio)
-        Self.logger.notice("repairMicrophone: status before reset = \(String(describing: before), privacy: .public)")
+        Self.logger.notice("repairMicrophone: resetting TCC and relaunching")
 
-        let tccResult: (exit: Int32, output: String) = await withCheckedContinuation { cont in
-            DispatchQueue.global(qos: .userInitiated).async {
-                let proc = Process()
-                proc.executableURL = URL(fileURLWithPath: "/usr/bin/tccutil")
-                proc.arguments = ["reset", "Microphone", "com.uttr.app"]
-                let pipe = Pipe()
-                proc.standardOutput = pipe
-                proc.standardError = pipe
-                do {
-                    try proc.run()
-                    proc.waitUntilExit()
-                    let data = pipe.fileHandleForReading.readDataToEndOfFile()
-                    let out = String(data: data, encoding: .utf8) ?? ""
-                    cont.resume(returning: (proc.terminationStatus, out))
-                } catch {
-                    cont.resume(returning: (-1, "launch failed: \(error.localizedDescription)"))
-                }
-            }
+        let proc = Process()
+        proc.executableURL = URL(fileURLWithPath: "/usr/bin/tccutil")
+        proc.arguments = ["reset", "Microphone", "com.uttr.app"]
+        try? proc.run()
+        proc.waitUntilExit()
+
+        // TCC decisions are cached per-process. The reset clears the
+        // database but this process still sees the old "denied" answer.
+        // Relaunch so the new process gets a fresh lookup.
+        Self.relaunch()
+        return .notGranted
+    }
+
+    private static func relaunch() {
+        let appURL = Bundle.main.bundleURL
+        let config = NSWorkspace.OpenConfiguration()
+        config.createsNewApplicationInstance = true
+        NSWorkspace.shared.openApplication(
+            at: appURL, configuration: config
+        ) { _, _ in
+            DispatchQueue.main.async { NSApp.terminate(nil) }
         }
-        let exitCode = tccResult.exit
-        let tccOut = tccResult.output
-        Self.logger.notice("repairMicrophone: tccutil exit=\(exitCode) output=\(tccOut, privacy: .public)")
-
-        let after = AVCaptureDevice.authorizationStatus(for: .audio)
-        Self.logger.notice("repairMicrophone: status after reset = \(String(describing: after), privacy: .public)")
-
-        let result = await requestMicrophone()
-        Self.logger.notice("repairMicrophone: final status = \(String(describing: result), privacy: .public)")
-        return result
     }
 
     func repairInputMonitoring() {

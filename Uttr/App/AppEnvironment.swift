@@ -188,12 +188,21 @@ final class AppEnvironment {
         let previous = UserDefaults.standard.string(forKey: key) ?? ""
         UserDefaults.standard.set(current, forKey: key)
         guard current != previous else { return }
-        guard permissionService.microphoneStatus() == .notGranted else { return }
-        let msg = "Build changed (\(previous) → \(current)); repairing stale mic TCC"
-        logger.info("\(msg, privacy: .public)")
+        // Run tccutil BEFORE any AVCaptureDevice API call. The TCC
+        // decision is cached per-process: once the framework sees
+        // "denied," no database reset changes the in-process answer.
+        // By resetting first, the first status check sees the clean DB.
+        let proc = Process()
+        proc.executableURL = URL(fileURLWithPath: "/usr/bin/tccutil")
+        proc.arguments = ["reset", "Microphone", "com.uttr.app"]
+        try? proc.run()
+        proc.waitUntilExit()
+        let msg = "Build changed (\(previous) → \(current)); reset mic TCC before first query"
+        logger.notice("\(msg, privacy: .public)")
         DebugFileLog.append("app", msg)
+        guard permissionService.microphoneStatus() == .notGranted else { return }
         Task { @MainActor in
-            _ = await permissionService.repairMicrophone()
+            _ = await permissionService.requestMicrophone()
         }
     }
 
