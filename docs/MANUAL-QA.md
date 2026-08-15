@@ -71,3 +71,89 @@ Test paste in each:
 - [ ] Onboarding appears on first launch
 - [ ] Skip confirmation works
 - [ ] Permissions can be granted during onboarding
+
+---
+
+## Update safety smoke test (manual RC checklist)
+
+These steps must be run manually before every release candidate because
+GitHub-hosted runners cannot automate macOS TCC permission prompts.
+
+### Prerequisites
+
+- Two consecutive signed builds: an "old" build and the release candidate.
+- A test Mac where Uttr has been installed before (existing TCC records).
+
+### Scenario A — normal update, microphone previously granted
+
+1. Install the **old** build from its DMG. Launch it and confirm microphone
+   access is already granted (green badge in Settings → Permissions).
+2. Quit Uttr. Install the **new RC build** DMG, replacing the old app.
+3. Launch the new build.
+4. **Expected**: microphone remains granted; no TCC prompt appears; no
+   `tccutil reset` is logged. Confirm in Settings → Permissions.
+5. **Expected**: `lastKnownBuildVersion` in `UserDefaults` is updated to the
+   new `CFBundleVersion`.
+
+### Scenario B — update with stale denied microphone record
+
+1. Using the **old** build, revoke microphone access in
+   System Settings → Privacy & Security → Microphone → Uttr (toggle off).
+2. Confirm the status badge in Settings → Permissions shows "Not Granted".
+3. Quit Uttr. Install the **new RC build** from its DMG.
+4. Launch the new build.
+5. **Expected**: a system microphone permission prompt appears.
+6. Grant access. **Expected**: microphone status becomes "Granted" without
+   requiring a restart.
+7. Confirm normal dictation works end-to-end.
+
+### Scenario C — transient tccutil failure (retry eligibility)
+
+_This scenario requires simulating a tccutil failure, which is hard to do
+cleanly in production. Document this test as a code-level regression check:
+see `UpdatePermissionAdvisorTests.failedRepairDoesNotAdvanceMarker`._
+
+- Confirm the unit test passes, which asserts: when `repairMicrophone()`
+  returns `.resetFailed(...)`, the build marker is NOT advanced, so the next
+  launch will attempt repair again.
+
+### Scenario D — first install (no prior TCC record)
+
+1. On a clean Mac (or after `tccutil reset Microphone com.uttr.app`), install
+   the RC build.
+2. Launch the app.
+3. **Expected**: the standard onboarding / permission request flow appears.
+   No automatic `tccutil reset` is triggered on first install.
+
+### Scenario E — deliberate user denial (no prompt loop)
+
+1. After a clean install, decline microphone access at the system prompt.
+2. Quit and re-launch several times.
+3. **Expected**: Uttr does NOT re-run `tccutil reset` on every launch for the
+   same build. One repair attempt per build is the limit.
+4. On the next build (version bump), one more prompt may appear; after that
+   the loop stops again.
+
+### Scenario F — manual "Repair & re-request" in Settings
+
+1. With a stale denied microphone record (see Scenario B step 1–2), open
+   Settings → Permissions.
+2. Tap "Not working? Repair & re-request" under the Microphone row.
+3. **Expected**: a system microphone prompt appears (or, if somehow granted,
+   the badge turns green immediately with no prompt).
+
+### Post-update Sparkle verification
+
+- [ ] Sparkle appcast URL is reachable and the feed lists the new version.
+- [ ] The signature in the appcast matches (use `Scripts/verify-sparkle-signature.swift`).
+- [ ] Sparkle XPC services are present in the app bundle
+  (`Uttr.app/Contents/XPCServices/org.sparkle-project.Installer*.xpc`).
+- [ ] The `SUPublicEDKey` in `Info.plist` has not changed.
+
+### Branch protection note
+
+The new `Update Artifact Check` CI job verifies the Release build contains
+Sparkle and the correct update configuration. It is safe to mark as required
+in branch protection (it uses no signing secrets and passes on fork PRs).
+The `Build & Test` job should also remain required. See the completion section
+of `docs/DECISIONS.md` for context.

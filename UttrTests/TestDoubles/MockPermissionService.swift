@@ -34,11 +34,19 @@ final class MockPermissionService: PermissionChecking, @unchecked Sendable {
         return requestAccessResult
     }
 
+    // MARK: - repairMicrophone
+
+    /// Configurable outcome for repairMicrophone; defaults to simulating a
+    /// successful reset followed by a granted response.
+    var repairMicOutcome: MicrophoneRepairOutcome = .resetAndRequested(.granted)
     var repairMicCalled = false
-    func repairMicrophone() async -> PermissionStatus {
+
+    func repairMicrophone() async -> MicrophoneRepairOutcome {
         repairMicCalled = true
-        return requestMicResult
+        return repairMicOutcome
     }
+
+    // MARK: - repairInputMonitoring
 
     var repairInputCalled = false
     func repairInputMonitoring() { repairInputCalled = true }

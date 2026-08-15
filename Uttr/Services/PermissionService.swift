@@ -9,6 +9,19 @@ enum PermissionStatus: Equatable, Sendable {
     case unknown
 }
 
+/// Outcome of a microphone-repair attempt.
+enum MicrophoneRepairOutcome: Equatable, Sendable {
+    /// Microphone was already granted; no repair was needed.
+    case alreadyGranted
+    /// tccutil reset succeeded and the system microphone request was presented.
+    /// The associated status is the user's response (.granted or .notGranted).
+    case resetAndRequested(PermissionStatus)
+    /// tccutil could not be launched or exited with a non-zero status.
+    /// The associated message describes the failure. The repair is eligible
+    /// for retry on the next qualifying build change.
+    case resetFailed(String)
+}
+
 protocol PermissionChecking: Sendable {
     func microphoneStatus() -> PermissionStatus
     func inputMonitoringStatus() -> PermissionStatus
@@ -24,10 +37,11 @@ protocol PermissionChecking: Sendable {
     ///   prompt was shown (grant requires a relaunch to take effect).
     @discardableResult
     func requestAccessibility() -> Bool
-    /// Clears Uttr's own stale Microphone record and re-requests.
-    /// After a signing identity change macOS may leave a stale "denied"
-    /// record that prevents the system prompt from reappearing.
-    func repairMicrophone() async -> PermissionStatus
+    /// Clears Uttr's own stale Microphone TCC record and re-requests the
+    /// permission. Returns a typed outcome so the caller can log failures
+    /// and decide whether to retry on a subsequent build.
+    /// Never called when microphone is already granted.
+    func repairMicrophone() async -> MicrophoneRepairOutcome
     /// Clears Uttr's own stale Input Monitoring record and re-requests.
     /// Fixes the "pane opens but Uttr isn't listed" dead end that stale
     /// records from earlier (differently-signed) builds cause: macOS refuses
@@ -88,14 +102,40 @@ struct RealPermissionService: PermissionChecking {
         return AXIsProcessTrustedWithOptions(options)
     }
 
-    func repairMicrophone() async -> PermissionStatus {
-        guard microphoneStatus() != .granted else { return .granted }
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/tccutil")
-        process.arguments = ["reset", "Microphone", "com.uttr.app"]
-        try? process.run()
-        process.waitUntilExit()
-        return await requestMicrophone()
+    func repairMicrophone() async -> MicrophoneRepairOutcome {
+        // Guard: never reset a working grant.
+        guard microphoneStatus() != .granted else { return .alreadyGranted }
+        // Run the tccutil subprocess on a background executor so the main
+        // actor is never blocked (PR-43 review issue #1).
+        let outcome: MicrophoneRepairOutcome = await withCheckedContinuation { continuation in
+            DispatchQueue.global(qos: .userInitiated).async {
+                let process = Process()
+                process.executableURL = URL(fileURLWithPath: "/usr/bin/tccutil")
+                process.arguments = ["reset", "Microphone", "com.uttr.app"]
+                do {
+                    try process.run()
+                    process.waitUntilExit()
+                    // Capture and propagate non-zero exit status (PR-43 review issue #2).
+                    let status = process.terminationStatus
+                    if status != 0 {
+                        continuation.resume(returning: .resetFailed("tccutil exited \(status)"))
+                        return
+                    }
+                } catch {
+                    continuation.resume(returning: .resetFailed("tccutil launch failed: \(error.localizedDescription)"))
+                    return
+                }
+                // Signal that reset succeeded; actual microphone request happens
+                // asynchronously back on the caller's context.
+                continuation.resume(returning: .resetAndRequested(.unknown))
+            }
+        }
+        // If the reset failed, return the failure immediately so the caller
+        // can observe it and decide whether to retry on a later build.
+        guard case .resetAndRequested = outcome else { return outcome }
+        // Present the system microphone prompt and return the user's response.
+        let status = await requestMicrophone()
+        return .resetAndRequested(status)
     }
 
     func repairInputMonitoring() {

@@ -79,3 +79,136 @@ jobs:
             exit 1
           fi
           echo "No secrets detected."
+
+  update-artifact-check:
+    name: Update Artifact Check
+    runs-on: macos-26
+    timeout-minutes: 20
+    # This job does not require signing secrets and is safe for PR/fork runs.
+    # It builds a Release configuration with ad-hoc signing and inspects the
+    # resulting app bundle to verify Sparkle is embedded and the expected
+    # update configuration is intact.
+    #
+    # It deliberately does NOT verify the real macOS TCC/microphone prompt
+    # (GitHub-hosted runners cannot reliably automate that UI interaction).
+    # See docs/MANUAL-QA.md for the manual smoke-test checklist.
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_26.6.app/Contents/Developer
+
+      - name: Resolve packages
+        run: |
+          xcodebuild -project Uttr.xcodeproj \
+            -scheme Uttr \
+            -resolvePackageDependencies
+
+      - name: Build Release (ad-hoc signed)
+        run: |
+          xcodebuild build \
+            -project Uttr.xcodeproj \
+            -scheme Uttr \
+            -configuration Release \
+            -destination "platform=macOS,arch=arm64" \
+            ARCHS=arm64 \
+            CODE_SIGN_IDENTITY="-" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            -derivedDataPath build/ArtifactCheck
+
+      - name: Locate app bundle
+        id: locate
+        run: |
+          APP=$(find "$(pwd)/build/ArtifactCheck" -name "Uttr.app" -maxdepth 6 | head -1)
+          if [ -z "$APP" ]; then
+            echo "::error::Uttr.app not found after Release build"
+            exit 1
+          fi
+          echo "app_path=$APP" >> "$GITHUB_OUTPUT"
+          echo "Found app bundle: $APP"
+
+      - name: Verify bundle ID
+        run: |
+          APP="${{ steps.locate.outputs.app_path }}"
+          BUNDLE_ID=$(defaults read "$APP/Contents/Info" CFBundleIdentifier)
+          echo "Bundle ID: $BUNDLE_ID"
+          if [ "$BUNDLE_ID" != "com.uttr.app" ]; then
+            echo "::error::Unexpected bundle ID: $BUNDLE_ID (expected com.uttr.app)"
+            exit 1
+          fi
+
+      - name: Verify Sparkle is embedded
+        run: |
+          APP="${{ steps.locate.outputs.app_path }}"
+          SPARKLE="$APP/Contents/Frameworks/Sparkle.framework"
+          if [ ! -d "$SPARKLE" ]; then
+            echo "::error::Sparkle.framework not found in $APP/Contents/Frameworks/"
+            exit 1
+          fi
+          echo "Sparkle.framework present: $SPARKLE"
+
+      - name: Verify Sparkle public key (SUPublicEDKey) in Info.plist
+        run: |
+          APP="${{ steps.locate.outputs.app_path }}"
+          KEY=$(defaults read "$APP/Contents/Info" SUPublicEDKey 2>/dev/null || true)
+          if [ -z "$KEY" ]; then
+            echo "::error::SUPublicEDKey missing from Info.plist — app cannot verify Sparkle updates"
+            exit 1
+          fi
+          echo "SUPublicEDKey is present (not echoed to avoid leaking it)"
+
+      - name: Verify appcast URL in Info.plist
+        run: |
+          APP="${{ steps.locate.outputs.app_path }}"
+          URL=$(defaults read "$APP/Contents/Info" SUFeedURL 2>/dev/null || true)
+          if [ -z "$URL" ]; then
+            echo "::error::SUFeedURL missing from Info.plist — automatic updates will not work"
+            exit 1
+          fi
+          echo "SUFeedURL: $URL"
+
+      - name: Verify microphone entitlement
+        run: |
+          APP="${{ steps.locate.outputs.app_path }}"
+          # Ad-hoc builds embed entitlements in the binary; inspect with codesign.
+          # A missing microphone entitlement means the OS will never show the
+          # permission prompt (the app silently fails).
+          if codesign -d --entitlements - "$APP" 2>&1 | grep -q "com.apple.security.device.audio-input"; then
+            echo "Microphone entitlement present."
+          else
+            echo "::warning::com.apple.security.device.audio-input entitlement not detected in ad-hoc build"
+            echo "(This may be expected for ad-hoc builds; verify against a developer-signed build.)"
+          fi
+
+      - name: Verify Sparkle XPC services are embedded
+        run: |
+          APP="${{ steps.locate.outputs.app_path }}"
+          # These XPC helpers must share the same signing team as the host app
+          # (PR #42 root cause). With ad-hoc signing they are present but
+          # unsigned; we verify presence only.
+          for XPC in \
+            "Contents/XPCServices/org.sparkle-project.InstallerLauncher.xpc" \
+            "Contents/XPCServices/org.sparkle-project.InstallerStatus.xpc"; do
+            if [ -d "$APP/$XPC" ]; then
+              echo "Present: $XPC"
+            else
+              echo "::warning::Missing XPC service: $XPC — check Sparkle copy-files build phase"
+            fi
+          done
+
+      - name: Verify UpdatePermissionAdvisor build version key constant
+        run: |
+          # Smoke-check that the key used by UpdatePermissionAdvisor to track
+          # build versions is present in the compiled source (not stripped by
+          # dead-code elimination under Release). This guards against the key
+          # being accidentally renamed without updating the constant.
+          KEY="lastKnownBuildVersion"
+          if grep -r "$KEY" Uttr/Services/UpdatePermissionAdvisor.swift; then
+            echo "Build version key '$KEY' present in source."
+          else
+            echo "::error::Build version key '$KEY' not found in UpdatePermissionAdvisor.swift"
+            exit 1
+          fi

@@ -53,6 +53,22 @@ final class AppEnvironment {
         }
     }
 
+    /// Evaluates whether microphone permission repair is needed after an
+    /// update and performs it asynchronously on the background, without
+    /// blocking the main actor.
+    private func repairPermissionsAfterUpdate() {
+        let currentBuild = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? ""
+        let advisor = UpdatePermissionAdvisor(
+            storage: UserDefaults.standard,
+            permissionService: permissionService,
+            currentBuild: currentBuild
+        )
+        Task { @MainActor [weak self] in
+            guard self != nil else { return }
+            await advisor.evaluateAndRepairIfNeeded()
+        }
+    }
+
     /// Applies the user's start-at-login choice to the system and persists it.
     /// Returns false when the system refused the change (setting is not saved
     /// so the toggle snaps back to reality).
@@ -180,19 +196,6 @@ final class AppEnvironment {
             keyCode: config.hotkey.keyCode,
             modifiers: Set(config.hotkey.modifiers)
         ))
-    }
-
-    private func repairPermissionsAfterUpdate() {
-        let key = "lastKnownBuildVersion"
-        let current = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? ""
-        let previous = UserDefaults.standard.string(forKey: key) ?? ""
-        UserDefaults.standard.set(current, forKey: key)
-        guard current != previous, !previous.isEmpty else { return }
-        guard permissionService.microphoneStatus() == .notGranted else { return }
-        logger.info("Build changed (\(previous) → \(current)); resetting stale microphone TCC record")
-        Task { @MainActor in
-            _ = await permissionService.repairMicrophone()
-        }
     }
 
     func checkPermissions() -> PermissionBlocker? {

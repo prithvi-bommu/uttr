@@ -23,7 +23,12 @@ struct PermissionsSettingsView: View {
                         },
                         repair: {
                             Task { @MainActor in
-                                micStatus = await permissionService.repairMicrophone()
+                                let outcome = await permissionService.repairMicrophone()
+                                if case .resetAndRequested(let status) = outcome {
+                                    micStatus = status
+                                } else {
+                                    micStatus = permissionService.microphoneStatus()
+                                }
                             }
                         },
                         openSettings: { permissionService.openMicrophoneSettings() }
