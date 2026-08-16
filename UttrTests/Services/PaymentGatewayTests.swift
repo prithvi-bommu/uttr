@@ -83,8 +83,14 @@ struct PaymentGatewayTests {
     func availableProducts() async {
         let gateway = MockPaymentGateway()
         gateway.productsToReturn = [
-            SubscriptionProduct(id: "lifetime", plan: .lifetime, localizedPrice: "$49.99", localizedPeriod: "forever", hasFreeTrial: false, trialDuration: nil),
-            SubscriptionProduct(id: "monthly", plan: .monthly, localizedPrice: "$5.99", localizedPeriod: "month", hasFreeTrial: true, trialDuration: "3 days"),
+            SubscriptionProduct(
+                id: "lifetime", plan: .lifetime, localizedPrice: "$49.99",
+                localizedPeriod: "forever", hasFreeTrial: false, trialDuration: nil
+            ),
+            SubscriptionProduct(
+                id: "monthly", plan: .monthly, localizedPrice: "$5.99",
+                localizedPeriod: "month", hasFreeTrial: true, trialDuration: "3 days"
+            ),
         ]
         let products = await gateway.availableProducts()
         #expect(products.count == 2)
@@ -105,7 +111,9 @@ struct PaymentGatewayTests {
     @MainActor
     func subscribedUserHasAccess() {
         let gateway = MockPaymentGateway()
-        gateway.subscriptionStatus = .subscribed(plan: .monthly, expiresAt: Date().addingTimeInterval(86400), willRenew: true)
+        gateway.subscriptionStatus = .subscribed(
+            plan: .monthly, expiresAt: Date().addingTimeInterval(86400), willRenew: true
+        )
         #expect(gateway.subscriptionStatus.hasPremiumAccess)
     }
 
@@ -150,7 +158,9 @@ struct PaymentGatewayTests {
         #expect(gateway.subscriptionStatus == .free)
         #expect(!gateway.subscriptionStatus.hasPremiumAccess)
 
-        gateway.subscriptionStatus = .subscribed(plan: .yearly, expiresAt: Date().addingTimeInterval(86400), willRenew: true)
+        gateway.subscriptionStatus = .subscribed(
+            plan: .yearly, expiresAt: Date().addingTimeInterval(86400), willRenew: true
+        )
         #expect(gateway.subscriptionStatus.hasPremiumAccess)
     }
 

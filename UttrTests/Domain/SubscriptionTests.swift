@@ -26,7 +26,9 @@ struct SubscriptionStatusTests {
 
     @Test("subscribed has premium access")
     func subscribedHasPremium() {
-        let status = SubscriptionStatus.subscribed(plan: .monthly, expiresAt: Date().addingTimeInterval(3600), willRenew: true)
+        let status = SubscriptionStatus.subscribed(
+            plan: .monthly, expiresAt: Date().addingTimeInterval(3600), willRenew: true
+        )
         #expect(status.hasPremiumAccess)
     }
 
