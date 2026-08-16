@@ -127,29 +127,25 @@ final class AppEnvironment {
         }
     }
 
+    private func startRecording(mode: DictationMode) {
+        if let blocker = checkPermissions() {
+            appState.handle(.permissionBlocked(blocker))
+            return
+        }
+        if appState.handle(.hotkeyDown) {
+            dictationController.recordingStarted(mode: mode)
+        }
+    }
+
     private func handleHotkeyEvent(_ event: HotkeyEvent) {
         switch event {
         case .hotkeyDown:
-            let missingPermission = checkPermissions()
-            if let blocker = missingPermission {
-                appState.handle(.permissionBlocked(blocker))
-                return
-            }
-            if appState.handle(.hotkeyDown) {
-                dictationController.recordingStarted(mode: .dictation)
-            }
+            startRecording(mode: .dictation)
 
         case .aiHotkeyDown:
             guard paymentGateway.subscriptionStatus.hasPremiumAccess else { return }
             guard configStore.settings.aiContent.enabled else { return }
-            let missingPermission = checkPermissions()
-            if let blocker = missingPermission {
-                appState.handle(.permissionBlocked(blocker))
-                return
-            }
-            if appState.handle(.hotkeyDown) {
-                dictationController.recordingStarted(mode: .aiContent)
-            }
+            startRecording(mode: .aiContent)
 
         case .hotkeyUp, .aiHotkeyUp:
             if appState.handle(.hotkeyUp) {

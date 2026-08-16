@@ -18,7 +18,11 @@ struct AIContentSettingsView: View {
                         Label("Uttr Pro Feature", systemImage: "lock.fill")
                             .font(.headline)
                             .foregroundStyle(.secondary)
-                        Text("Hold ⌥A and speak a request (\u{201C}write an email to…\u{201D}). The AI's response is pasted instead of your words. Upgrade to Uttr Pro to enable this feature.")
+                        Text(
+                            "Hold ⌥A and speak a request (\u{201C}write an email to…\u{201D}). "
+                            + "The AI\u{2019}s response is pasted instead of your words. "
+                            + "Upgrade to Uttr Pro to enable this feature."
+                        )
                             .font(.caption)
                             .foregroundStyle(.secondary)
                         Button("Upgrade to Uttr Pro") {
@@ -37,7 +41,12 @@ struct AIContentSettingsView: View {
                             onConfigChanged?()
                         }
                     ))
-                    Text("Hold ⌥A and speak a request (\u{201C}write an email to…\u{201D}). The transcription happens on-device; only the transcribed text is sent to the provider below, and the AI's response is pasted instead of your words. Audio never leaves your Mac.")
+                    Text(
+                        "Hold ⌥A and speak a request (\u{201C}write an email to…\u{201D}). "
+                        + "The transcription happens on-device; only the transcribed text "
+                        + "is sent to the provider below, and the AI\u{2019}s response is pasted "
+                        + "instead of your words. Audio never leaves your Mac."
+                    )
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -137,7 +146,12 @@ struct AIContentSettingsView: View {
                 }
                 Toggle("Show", isOn: $revealKey).toggleStyle(.checkbox)
             }
-            Text("Works with any OpenAI-compatible chat-completions server: api.openai.com, a local model server, or a gateway you have access to. Configure the URL for your environment — no key needed for most local servers.")
+            Text(
+                "Works with any OpenAI-compatible chat-completions server: "
+                + "api.openai.com, a local model server, or a gateway you have "
+                + "access to. Configure the URL for your environment — no key "
+                + "needed for most local servers."
+            )
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
@@ -205,7 +219,11 @@ struct AIContentSettingsView: View {
                 .textFieldStyle(.roundedBorder)
                 .font(.body.monospaced())
             }
-            Text("Runs a local tool of your choice: the prompt is piped to stdin (or substituted for {prompt} in the arguments) and the tool's output is pasted. Configuration stays on this Mac.")
+            Text(
+                "Runs a local tool of your choice: the prompt is piped to stdin "
+                + "(or substituted for {prompt} in the arguments) and the tool\u{2019}s "
+                + "output is pasted. Configuration stays on this Mac."
+            )
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
