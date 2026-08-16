@@ -4,26 +4,46 @@ import SwiftUI
 /// transcript is sent to a configurable AI backend, with the response pasted.
 struct AIContentSettingsView: View {
     @Bindable var store: ConfigurationStore
+    var paymentGateway: (any PaymentGateway)?
     /// Re-registers the AI hotkey when the enabled state changes.
     var onConfigChanged: (() -> Void)?
     @State private var revealKey = false
+    @State private var showPaywall = false
 
     var body: some View {
         Form {
             Section("AI Content") {
-                Toggle("Enable AI content mode", isOn: Binding(
-                    get: { store.settings.aiContent.enabled },
-                    set: { newValue in
-                        try? store.update { $0.aiContent.enabled = newValue }
-                        onConfigChanged?()
+                if let gateway = paymentGateway, !gateway.subscriptionStatus.hasPremiumAccess {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Label("Uttr Pro Feature", systemImage: "lock.fill")
+                            .font(.headline)
+                            .foregroundStyle(.secondary)
+                        Text("Hold ⌥A and speak a request (\u{201C}write an email to…\u{201D}). The AI's response is pasted instead of your words. Upgrade to Uttr Pro to enable this feature.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Button("Upgrade to Uttr Pro") {
+                            showPaywall = true
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .controlSize(.small)
+                        .padding(.top, 2)
                     }
-                ))
-                Text("Hold ⌥A and speak a request (\u{201C}write an email to…\u{201D}). The transcription happens on-device; only the transcribed text is sent to the provider below, and the AI's response is pasted instead of your words. Audio never leaves your Mac.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .padding(.vertical, 4)
+                } else {
+                    Toggle("Enable AI content mode", isOn: Binding(
+                        get: { store.settings.aiContent.enabled },
+                        set: { newValue in
+                            try? store.update { $0.aiContent.enabled = newValue }
+                            onConfigChanged?()
+                        }
+                    ))
+                    Text("Hold ⌥A and speak a request (\u{201C}write an email to…\u{201D}). The transcription happens on-device; only the transcribed text is sent to the provider below, and the AI's response is pasted instead of your words. Audio never leaves your Mac.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
             }
 
-            if store.settings.aiContent.enabled {
+            if store.settings.aiContent.enabled, paymentGateway?.subscriptionStatus.hasPremiumAccess != false {
                 Section("Provider") {
                     Picker("Backend:", selection: Binding(
                         get: { store.settings.aiContent.provider },
@@ -76,6 +96,16 @@ struct AIContentSettingsView: View {
         }
         .formStyle(.grouped)
         .padding()
+        .sheet(isPresented: $showPaywall) {
+            UttrPaywallView(
+                onDismiss: { showPaywall = false },
+                onPurchaseCompleted: {
+                    showPaywall = false
+                    try? store.update { $0.aiContent.enabled = true }
+                    onConfigChanged?()
+                }
+            )
+        }
     }
 
     private var httpSection: some View {

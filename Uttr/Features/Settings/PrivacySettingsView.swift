@@ -16,7 +16,11 @@ struct PrivacySettingsView: View {
             }
 
             Section("No Tracking") {
-                Text("Uttr does not collect analytics, telemetry, usage statistics, crash reports, or any personal information. There are no accounts, subscriptions, or cloud sync features.")
+                Text("Uttr does not collect analytics, telemetry, usage statistics, crash reports, or any personal information. There are no accounts or cloud sync features.")
+            }
+
+            Section("Subscriptions") {
+                Text("Uttr Pro subscriptions are managed through RevenueCat, which communicates with the App Store on your behalf. RevenueCat receives only the transaction data Apple provides (product ID, purchase date, expiry). No audio, transcripts, clipboard contents, or personal information are shared with RevenueCat. Your subscription status is cached locally so premium features work offline.")
             }
         }
         .formStyle(.grouped)
