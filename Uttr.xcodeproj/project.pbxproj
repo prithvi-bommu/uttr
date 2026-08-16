@@ -50,6 +50,8 @@
 /* Begin PBXBuildFile section */
 		A1B2C3D4E5F6071829304A5D /* WhisperKit in Frameworks */ = {isa = PBXBuildFile; productRef = A1B2C3D4E5F6071829304A5C /* WhisperKit */; };
 		8D307DACA0887C9D323CA976 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = 4EB5721DFDFFAB66BFC5E765 /* Sparkle */; };
+		RC0001BUILDFILE0001 /* RevenueCat in Frameworks */ = {isa = PBXBuildFile; productRef = RC0001PRODREF0001 /* RevenueCat */; };
+		RC0001BUILDFILE0002 /* RevenueCatUI in Frameworks */ = {isa = PBXBuildFile; productRef = RC0001PRODREF0002 /* RevenueCatUI */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -59,6 +61,8 @@
 			files = (
 				A1B2C3D4E5F6071829304A5D /* WhisperKit in Frameworks */,
 				8D307DACA0887C9D323CA976 /* Sparkle in Frameworks */,
+				RC0001BUILDFILE0001 /* RevenueCat in Frameworks */,
+				RC0001BUILDFILE0002 /* RevenueCatUI in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -113,6 +117,8 @@
 			packageProductDependencies = (
 				A1B2C3D4E5F6071829304A5C /* WhisperKit */,
 				4EB5721DFDFFAB66BFC5E765 /* Sparkle */,
+				RC0001PRODREF0001 /* RevenueCat */,
+				RC0001PRODREF0002 /* RevenueCatUI */,
 			);
 			productName = Uttr;
 			productReference = 6165CF083023BC4E0085D938 /* Uttr.app */;
@@ -199,6 +205,7 @@
 			packageReferences = (
 				A1B2C3D4E5F6071829304A5B /* XCRemoteSwiftPackageReference "WhisperKit" */,
 				D540DF137FECA3421A83E18F /* XCRemoteSwiftPackageReference "Sparkle" */,
+				RC0001PKGREF00001 /* XCRemoteSwiftPackageReference "purchases-ios-spm" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = E0000002;
@@ -572,6 +579,14 @@
 				version = 2.9.5;
 			};
 		};
+		RC0001PKGREF00001 /* XCRemoteSwiftPackageReference "purchases-ios-spm" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/RevenueCat/purchases-ios-spm.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 5.0.0;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -584,6 +599,16 @@
 			isa = XCSwiftPackageProductDependency;
 			package = D540DF137FECA3421A83E18F /* XCRemoteSwiftPackageReference "Sparkle" */;
 			productName = Sparkle;
+		};
+		RC0001PRODREF0001 /* RevenueCat */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = RC0001PKGREF00001 /* XCRemoteSwiftPackageReference "purchases-ios-spm" */;
+			productName = RevenueCat;
+		};
+		RC0001PRODREF0002 /* RevenueCatUI */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = RC0001PKGREF00001 /* XCRemoteSwiftPackageReference "purchases-ios-spm" */;
+			productName = RevenueCatUI;
 		};
 /* End XCSwiftPackageProductDependency section */
 

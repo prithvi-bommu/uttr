@@ -6,6 +6,7 @@ struct MenuBarView: View {
     var coordinator: TranscriptionCoordinator?
     var metrics: DictationMetrics?
     var permissionService: PermissionChecking?
+    var paymentGateway: (any PaymentGateway)?
     var updater: UpdaterServicing?
     @Environment(\.openWindow) private var openWindow
     @Environment(\.openSettings) private var openSettings
@@ -35,6 +36,13 @@ struct MenuBarView: View {
                 case .inputMonitoring: permissionService.openInputMonitoringSettings()
                 case .accessibility: permissionService.openAccessibilitySettings()
                 }
+            }
+        }
+
+        if let gateway = paymentGateway, !gateway.subscriptionStatus.hasPremiumAccess {
+            Divider()
+            Button("✦ Upgrade to Uttr Pro…") {
+                openSettingsAndFocus()
             }
         }
 
