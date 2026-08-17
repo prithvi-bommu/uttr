@@ -14,7 +14,6 @@ struct UttrApp: App {
                 coordinator: env.transcriptionCoordinator,
                 metrics: env.dictationMetrics,
                 permissionService: env.permissionService,
-                paymentGateway: env.paymentGateway,
                 updater: env.updaterService
             )
         } label: {
@@ -28,7 +27,6 @@ struct UttrApp: App {
                 store: env.configStore,
                 appState: env.appState,
                 permissionService: env.permissionService,
-                paymentGateway: env.paymentGateway,
                 onBeginCapture: { env.beginShortcutCapture() },
                 onCancelCapture: { env.cancelShortcutCapture() },
                 transcriptionCoordinator: env.transcriptionCoordinator,
