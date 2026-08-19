@@ -43,6 +43,9 @@ jobs:
       - name: Select Xcode
         run: sudo xcode-select -s /Applications/Xcode_26.6.app/Contents/Developer
 
+      - name: Reject RevenueCat test key in Release
+        run: ./Scripts/verify-release-pricing-key.sh
+
       - name: Resolve packages
         run: |
           xcodebuild -project Uttr.xcodeproj \

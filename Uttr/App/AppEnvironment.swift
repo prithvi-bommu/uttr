@@ -13,12 +13,17 @@ final class AppEnvironment {
     let updaterService: UpdaterServicing = SparkleUpdaterService()
     let transcriptionCoordinator = TranscriptionCoordinator()
     let dictationMetrics = DictationMetrics()
+    let paymentGateway: any PaymentGateway
     private let recorder = AVAudioEngineRecorder()
     private(set) var recordingIndicator: RecordingIndicatorController!
     private(set) var dictationController: DictationController!
     private let logger = Logger(subsystem: "com.uttr.app", category: "app")
 
     private init() {
+        let gateway = RevenueCatGateway(pricingConfig: PricingConfigLoader.load())
+        self.paymentGateway = gateway
+        Task { await gateway.configure() }
+
         configStore.load()
         recordingIndicator = RecordingIndicatorController(recorder: recorder)
         dictationController = DictationController(
@@ -32,10 +37,12 @@ final class AppEnvironment {
                 guard config.enabled else { return nil }
                 return RuleBasedTextPolisher(options: .init(config: config))
             },
-            cloudPolisherProvider: { [configStore] in
-                TextPolisherFactory.make(config: configStore.settings.cloudPolish)
+            cloudPolisherProvider: { [configStore, gateway] in
+                guard gateway.subscriptionStatus.hasPremiumAccess else { return nil }
+                return TextPolisherFactory.make(config: configStore.settings.cloudPolish)
             },
-            aiProvider: { [configStore] in
+            aiProvider: { [configStore, gateway] in
+                guard gateway.subscriptionStatus.hasPremiumAccess else { return nil }
                 let config = configStore.settings.aiContent
                 guard config.enabled else { return nil }
                 return AIContentProviderFactory.make(config: config)
@@ -120,28 +127,25 @@ final class AppEnvironment {
         }
     }
 
+    private func startRecording(mode: DictationMode) {
+        if let blocker = checkPermissions() {
+            appState.handle(.permissionBlocked(blocker))
+            return
+        }
+        if appState.handle(.hotkeyDown) {
+            dictationController.recordingStarted(mode: mode)
+        }
+    }
+
     private func handleHotkeyEvent(_ event: HotkeyEvent) {
         switch event {
         case .hotkeyDown:
-            let missingPermission = checkPermissions()
-            if let blocker = missingPermission {
-                appState.handle(.permissionBlocked(blocker))
-                return
-            }
-            if appState.handle(.hotkeyDown) {
-                dictationController.recordingStarted(mode: .dictation)
-            }
+            startRecording(mode: .dictation)
 
         case .aiHotkeyDown:
+            guard paymentGateway.subscriptionStatus.hasPremiumAccess else { return }
             guard configStore.settings.aiContent.enabled else { return }
-            let missingPermission = checkPermissions()
-            if let blocker = missingPermission {
-                appState.handle(.permissionBlocked(blocker))
-                return
-            }
-            if appState.handle(.hotkeyDown) {
-                dictationController.recordingStarted(mode: .aiContent)
-            }
+            startRecording(mode: .aiContent)
 
         case .hotkeyUp, .aiHotkeyUp:
             if appState.handle(.hotkeyUp) {

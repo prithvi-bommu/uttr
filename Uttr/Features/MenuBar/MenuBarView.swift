@@ -6,6 +6,7 @@ struct MenuBarView: View {
     var coordinator: TranscriptionCoordinator?
     var metrics: DictationMetrics?
     var permissionService: PermissionChecking?
+    var paymentGateway: (any PaymentGateway)?
     var updater: UpdaterServicing?
     @Environment(\.openWindow) private var openWindow
     @Environment(\.openSettings) private var openSettings
@@ -35,6 +36,13 @@ struct MenuBarView: View {
                 case .inputMonitoring: permissionService.openInputMonitoringSettings()
                 case .accessibility: permissionService.openAccessibilitySettings()
                 }
+            }
+        }
+
+        if paymentGateway?.subscriptionStatus.hasPremiumAccess != true {
+            Divider()
+            Button("✦ Upgrade to Uttr Pro…") {
+                openSettingsAndFocus()
             }
         }
 
@@ -128,4 +136,3 @@ extension PermissionBlocker {
         }
     }
 }
-

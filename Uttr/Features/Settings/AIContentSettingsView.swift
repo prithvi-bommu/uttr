@@ -4,26 +4,55 @@ import SwiftUI
 /// transcript is sent to a configurable AI backend, with the response pasted.
 struct AIContentSettingsView: View {
     @Bindable var store: ConfigurationStore
+    var paymentGateway: (any PaymentGateway)?
     /// Re-registers the AI hotkey when the enabled state changes.
     var onConfigChanged: (() -> Void)?
     @State private var revealKey = false
+    @State private var showPaywall = false
 
     var body: some View {
         Form {
             Section("AI Content") {
-                Toggle("Enable AI content mode", isOn: Binding(
-                    get: { store.settings.aiContent.enabled },
-                    set: { newValue in
-                        try? store.update { $0.aiContent.enabled = newValue }
-                        onConfigChanged?()
+                if paymentGateway?.subscriptionStatus.hasPremiumAccess != true {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Label("Uttr Pro Feature", systemImage: "lock.fill")
+                            .font(.headline)
+                            .foregroundStyle(.secondary)
+                        Text(
+                            "Hold ⌥A and speak a request (\u{201C}write an email to…\u{201D}). "
+                            + "The AI\u{2019}s response is pasted instead of your words. "
+                            + "Upgrade to Uttr Pro to enable this feature."
+                        )
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Button("Upgrade to Uttr Pro") {
+                            showPaywall = true
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .controlSize(.small)
+                        .padding(.top, 2)
                     }
-                ))
-                Text("Hold ⌥A and speak a request (\u{201C}write an email to…\u{201D}). The transcription happens on-device; only the transcribed text is sent to the provider below, and the AI's response is pasted instead of your words. Audio never leaves your Mac.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .padding(.vertical, 4)
+                } else {
+                    Toggle("Enable AI content mode", isOn: Binding(
+                        get: { store.settings.aiContent.enabled },
+                        set: { newValue in
+                            try? store.update { $0.aiContent.enabled = newValue }
+                            onConfigChanged?()
+                        }
+                    ))
+                    Text(
+                        "Hold ⌥A and speak a request (\u{201C}write an email to…\u{201D}). "
+                        + "The transcription happens on-device; only the transcribed text "
+                        + "is sent to the provider below, and the AI\u{2019}s response is pasted "
+                        + "instead of your words. Audio never leaves your Mac."
+                    )
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
             }
 
-            if store.settings.aiContent.enabled {
+            if store.settings.aiContent.enabled, paymentGateway?.subscriptionStatus.hasPremiumAccess == true {
                 Section("Provider") {
                     Picker("Backend:", selection: Binding(
                         get: { store.settings.aiContent.provider },
@@ -76,6 +105,16 @@ struct AIContentSettingsView: View {
         }
         .formStyle(.grouped)
         .padding()
+        .sheet(isPresented: $showPaywall) {
+            UttrPaywallView(
+                onDismiss: { showPaywall = false },
+                onPurchaseCompleted: {
+                    showPaywall = false
+                    try? store.update { $0.aiContent.enabled = true }
+                    onConfigChanged?()
+                }
+            )
+        }
     }
 
     private var httpSection: some View {
@@ -107,7 +146,12 @@ struct AIContentSettingsView: View {
                 }
                 Toggle("Show", isOn: $revealKey).toggleStyle(.checkbox)
             }
-            Text("Works with any OpenAI-compatible chat-completions server: api.openai.com, a local model server, or a gateway you have access to. Configure the URL for your environment — no key needed for most local servers.")
+            Text(
+                "Works with any OpenAI-compatible chat-completions server: "
+                + "api.openai.com, a local model server, or a gateway you have "
+                + "access to. Configure the URL for your environment — no key "
+                + "needed for most local servers."
+            )
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
@@ -175,7 +219,11 @@ struct AIContentSettingsView: View {
                 .textFieldStyle(.roundedBorder)
                 .font(.body.monospaced())
             }
-            Text("Runs a local tool of your choice: the prompt is piped to stdin (or substituted for {prompt} in the arguments) and the tool's output is pasted. Configuration stays on this Mac.")
+            Text(
+                "Runs a local tool of your choice: the prompt is piped to stdin "
+                + "(or substituted for {prompt} in the arguments) and the tool\u{2019}s "
+                + "output is pasted. Configuration stays on this Mac."
+            )
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }

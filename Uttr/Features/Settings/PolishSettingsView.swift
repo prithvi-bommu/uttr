@@ -2,11 +2,13 @@ import SwiftUI
 
 struct PolishSettingsView: View {
     @Bindable var store: ConfigurationStore
+    var paymentGateway: (any PaymentGateway)?
     var keyTester = PolishKeyTester()
     @State private var revealOpenAIKey = false
     @State private var revealAnthropicKey = false
     @State private var testKeyResult: String?
     @State private var testingKey = false
+    @State private var showPaywall = false
 
     var body: some View {
         Form {
@@ -17,7 +19,10 @@ struct PolishSettingsView: View {
                         try? store.update { $0.localPolish.enabled = newValue }
                     }
                 ))
-                Text("Runs a fast rule-based pass entirely on your Mac — no network, no API key. Applied after transcription and before pasting.")
+                Text(
+                    "Runs a fast rule-based pass entirely on your Mac — no network, "
+                    + "no API key. Applied after transcription and before pasting."
+                )
                     .font(.caption)
                     .foregroundStyle(.secondary)
 
@@ -43,19 +48,44 @@ struct PolishSettingsView: View {
                 }
             }
 
-            Section("Text Polish") {
-                Toggle("Enable text polish", isOn: Binding(
-                    get: { store.settings.cloudPolish.enabled },
-                    set: { newValue in
-                        try? store.update { $0.cloudPolish.enabled = newValue }
+            Section("Cloud Text Polish") {
+                if paymentGateway?.subscriptionStatus.hasPremiumAccess != true {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Label("Uttr Pro Feature", systemImage: "lock.fill")
+                            .font(.headline)
+                            .foregroundStyle(.secondary)
+                        Text(
+                            "Cloud Text Polish sends your transcript to an AI provider "
+                            + "for natural-sounding cleanup. Upgrade to Uttr Pro to "
+                            + "enable this feature."
+                        )
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Button("Upgrade to Uttr Pro") {
+                            showPaywall = true
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .controlSize(.small)
+                        .padding(.top, 2)
                     }
-                ))
-                Text("When enabled, Uttr sends only the final transcript text to the selected provider for cleanup. Audio is never sent.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .padding(.vertical, 4)
+                } else {
+                    Toggle("Enable text polish", isOn: Binding(
+                        get: { store.settings.cloudPolish.enabled },
+                        set: { newValue in
+                            try? store.update { $0.cloudPolish.enabled = newValue }
+                        }
+                    ))
+                    Text(
+                        "When enabled, Uttr sends only the final transcript text to "
+                        + "the selected provider for cleanup. Audio is never sent."
+                    )
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
             }
 
-            if store.settings.cloudPolish.enabled {
+            if store.settings.cloudPolish.enabled, paymentGateway?.subscriptionStatus.hasPremiumAccess == true {
                 Section("Provider") {
                     Picker("Provider:", selection: Binding(
                         get: { store.settings.cloudPolish.provider },
@@ -140,6 +170,43 @@ struct PolishSettingsView: View {
         }
         .formStyle(.grouped)
         .padding()
+        .sheet(isPresented: $showPaywall) {
+            UttrPaywallView(
+                onDismiss: { showPaywall = false },
+                onPurchaseCompleted: {
+                    showPaywall = false
+                    try? store.update { $0.cloudPolish.enabled = true }
+                }
+            )
+        }
+    }
+
+    private func runKeyTest(apiKey: String, model: String) {
+        let provider = store.settings.cloudPolish.provider
+        let config = ProviderConfig(apiKey: apiKey, model: model)
+        let timeout = store.settings.cloudPolish.timeoutSeconds
+        testingKey = true
+        testKeyResult = nil
+        Task {
+            let result = await keyTester.test(
+                provider: provider, config: config,
+                timeoutSeconds: timeout)
+            testKeyResult = result.displayText
+            testingKey = false
+        }
+    }
+
+    private var keyDisclosureText: some View {
+        Text(
+            "Your API key is saved in Uttr\u{2019}s local configuration file as "
+            + "plaintext. It is not sent anywhere except to the provider you "
+            + "select when text polishing is enabled. Use a provider spending "
+            + "limit and do not use a high-privilege key."
+        )
+        .font(.caption)
+        .foregroundStyle(.secondary)
+        .padding(.top, 4)
+        .accessibilityIdentifier("plaintextDisclosure")
     }
 
     @ViewBuilder
@@ -175,21 +242,10 @@ struct PolishSettingsView: View {
 
             HStack {
                 Button(testingKey ? "Testing…" : "Test Key…") {
-                    let provider = store.settings.cloudPolish.provider
-                    let config = ProviderConfig(
+                    runKeyTest(
                         apiKey: apiKey.wrappedValue,
                         model: model.wrappedValue
                     )
-                    let timeout = store.settings.cloudPolish.timeoutSeconds
-                    testingKey = true
-                    testKeyResult = nil
-                    Task {
-                        let result = await keyTester.test(
-                            provider: provider, config: config,
-                            timeoutSeconds: timeout)
-                        testKeyResult = result.displayText
-                        testingKey = false
-                    }
                 }
                 .disabled(testingKey || apiKey.wrappedValue.trimmingCharacters(in: .whitespaces).isEmpty)
                 if testingKey {
@@ -204,11 +260,7 @@ struct PolishSettingsView: View {
                     .foregroundStyle(.secondary)
             }
 
-            Text("Your API key is saved in Uttr's local configuration file as plaintext. It is not sent anywhere except to the provider you select when text polishing is enabled. Use a provider spending limit and do not use a high-privilege key.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .padding(.top, 4)
-                .accessibilityIdentifier("plaintextDisclosure")
+            keyDisclosureText
         }
     }
 }
