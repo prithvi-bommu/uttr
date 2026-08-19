@@ -140,6 +140,8 @@ hdiutil create -volname "Uttr" -srcfolder build/Uttr.xcarchive/Products/Applicat
 - **RevenueCat CustomerCenterView** is `@available(macOS, unavailable)` — subscription management links to Apple's subscription page instead.
 - **BYOK model** — subscribers currently provide their own API keys. A backend proxy to eliminate this is tracked as a separate issue.
 - **⌥A hotkey pass-through** — when AI Content is disabled (which it always is for free users), ⌥A types "a" instead of being silently consumed. This is tracked separately.
+- **Cached status expiry** — cached subscriptions are resolved against the current date only at launch. A session that runs past expiry relies on RevenueCat's `customerInfoStream` to downgrade access.
+- **Offline cache trust** — `com.uttr.cachedSubscriptionStatus` is plain `UserDefaults` and user-editable. It supports offline availability, not tamper-proof entitlement storage; RevenueCat is authoritative whenever reachable.
 
 ## Commits and pull requests
 

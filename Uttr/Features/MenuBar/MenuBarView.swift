@@ -39,7 +39,7 @@ struct MenuBarView: View {
             }
         }
 
-        if let gateway = paymentGateway, !gateway.subscriptionStatus.hasPremiumAccess {
+        if paymentGateway?.subscriptionStatus.hasPremiumAccess != true {
             Divider()
             Button("✦ Upgrade to Uttr Pro…") {
                 openSettingsAndFocus()
@@ -136,4 +136,3 @@ extension PermissionBlocker {
         }
     }
 }
-

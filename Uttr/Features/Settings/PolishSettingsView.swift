@@ -49,7 +49,7 @@ struct PolishSettingsView: View {
             }
 
             Section("Cloud Text Polish") {
-                if let gateway = paymentGateway, !gateway.subscriptionStatus.hasPremiumAccess {
+                if paymentGateway?.subscriptionStatus.hasPremiumAccess != true {
                     VStack(alignment: .leading, spacing: 8) {
                         Label("Uttr Pro Feature", systemImage: "lock.fill")
                             .font(.headline)
@@ -85,7 +85,7 @@ struct PolishSettingsView: View {
                 }
             }
 
-            if store.settings.cloudPolish.enabled, paymentGateway?.subscriptionStatus.hasPremiumAccess != false {
+            if store.settings.cloudPolish.enabled, paymentGateway?.subscriptionStatus.hasPremiumAccess == true {
                 Section("Provider") {
                     Picker("Provider:", selection: Binding(
                         get: { store.settings.cloudPolish.provider },

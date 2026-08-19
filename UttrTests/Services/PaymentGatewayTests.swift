@@ -149,6 +149,27 @@ struct PaymentGatewayTests {
         #expect(gateway.subscriptionStatus.hasPremiumAccess)
     }
 
+    @Test("premium gate follows subscription access")
+    @MainActor
+    func premiumGateAccess() {
+        let gateway = MockPaymentGateway()
+        let future = Date(timeIntervalSince1970: 1_700_000_001)
+
+        gateway.subscriptionStatus = .free
+        #expect(!gateway.subscriptionStatus.hasPremiumAccess)
+        gateway.subscriptionStatus = .expired(plan: .monthly, expiredAt: future)
+        #expect(!gateway.subscriptionStatus.hasPremiumAccess)
+
+        gateway.subscriptionStatus = .trial(expiresAt: future)
+        #expect(gateway.subscriptionStatus.hasPremiumAccess)
+        gateway.subscriptionStatus = .subscribed(plan: .monthly, expiresAt: future, willRenew: true)
+        #expect(gateway.subscriptionStatus.hasPremiumAccess)
+        gateway.subscriptionStatus = .grace(plan: .yearly, expiresAt: future)
+        #expect(gateway.subscriptionStatus.hasPremiumAccess)
+        gateway.subscriptionStatus = .lifetime
+        #expect(gateway.subscriptionStatus.hasPremiumAccess)
+    }
+
     // MARK: - Status transitions
 
     @Test("status can transition from free to subscribed")

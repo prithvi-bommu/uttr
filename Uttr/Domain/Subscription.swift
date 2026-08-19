@@ -35,6 +35,19 @@ enum SubscriptionStatus: Codable, Equatable, Sendable {
         case .free, .lifetime: nil
         }
     }
+
+    /// Downgrades a cached status whose expiry has passed before granting
+    /// offline premium access. Live RevenueCat statuses are authoritative.
+    func resolved(asOf now: Date = Date()) -> SubscriptionStatus {
+        switch self {
+        case .free, .expired, .lifetime:
+            return self
+        case .trial(let expiresAt):
+            return expiresAt > now ? self : .free
+        case .subscribed(let plan, let expiresAt, _), .grace(let plan, let expiresAt):
+            return expiresAt > now ? self : .expired(plan: plan, expiredAt: expiresAt)
+        }
+    }
 }
 
 enum SubscriptionPlan: String, Codable, Equatable, Sendable {

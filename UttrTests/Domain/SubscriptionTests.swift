@@ -83,6 +83,81 @@ struct SubscriptionStatusTests {
         #expect(status.expirationDate == date)
     }
 
+    // MARK: - Cached status resolution
+
+    private let now = Date(timeIntervalSince1970: 1_700_000_000)
+
+    @Test("lifetime cache never expires")
+    func lifetimeResolution() {
+        #expect(SubscriptionStatus.lifetime.resolved(asOf: now) == .lifetime)
+    }
+
+    @Test("free cache remains free")
+    func freeResolution() {
+        #expect(SubscriptionStatus.free.resolved(asOf: now) == .free)
+    }
+
+    @Test("expired cache remains expired")
+    func expiredResolution() {
+        let expiredAt = now.addingTimeInterval(-1)
+        let status = SubscriptionStatus.expired(plan: .yearly, expiredAt: expiredAt)
+        #expect(status.resolved(asOf: now) == status)
+    }
+
+    @Test("expired trial cache resolves to free")
+    func expiredTrialResolution() {
+        let status = SubscriptionStatus.trial(expiresAt: now.addingTimeInterval(-1))
+        let resolved = status.resolved(asOf: now)
+        #expect(resolved == .free)
+        #expect(!resolved.hasPremiumAccess)
+    }
+
+    @Test("active trial cache remains active")
+    func activeTrialResolution() {
+        let status = SubscriptionStatus.trial(expiresAt: now.addingTimeInterval(1))
+        #expect(status.resolved(asOf: now) == status)
+    }
+
+    @Test("expired subscribed cache preserves its plan")
+    func expiredSubscriptionResolution() {
+        let expiresAt = now.addingTimeInterval(-1)
+        let status = SubscriptionStatus.subscribed(plan: .monthly, expiresAt: expiresAt, willRenew: true)
+        let resolved = status.resolved(asOf: now)
+        #expect(resolved == .expired(plan: .monthly, expiredAt: expiresAt))
+        #expect(!resolved.hasPremiumAccess)
+    }
+
+    @Test("active subscribed cache preserves renewal state")
+    func activeSubscriptionResolution() {
+        let status = SubscriptionStatus.subscribed(
+            plan: .yearly, expiresAt: now.addingTimeInterval(1), willRenew: false
+        )
+        #expect(status.resolved(asOf: now) == status)
+    }
+
+    @Test("expired grace cache preserves its plan")
+    func expiredGraceResolution() {
+        let expiresAt = now.addingTimeInterval(-1)
+        let status = SubscriptionStatus.grace(plan: .yearly, expiresAt: expiresAt)
+        let resolved = status.resolved(asOf: now)
+        #expect(resolved == .expired(plan: .yearly, expiredAt: expiresAt))
+        #expect(!resolved.hasPremiumAccess)
+    }
+
+    @Test("active grace cache remains active")
+    func activeGraceResolution() {
+        let status = SubscriptionStatus.grace(plan: .monthly, expiresAt: now.addingTimeInterval(1))
+        #expect(status.resolved(asOf: now) == status)
+    }
+
+    @Test("status expiring now is no longer active")
+    func expiryBoundaryResolution() {
+        let status = SubscriptionStatus.subscribed(plan: .monthly, expiresAt: now, willRenew: true)
+        let resolved = status.resolved(asOf: now)
+        #expect(resolved == .expired(plan: .monthly, expiredAt: now))
+        #expect(!resolved.hasPremiumAccess)
+    }
+
     // MARK: - Codable round-trip
 
     @Test("all statuses survive encode/decode", arguments: [

@@ -136,8 +136,9 @@ final class RevenueCatGateway: PaymentGateway {
     private func mapCustomerInfo(_ info: CustomerInfo) -> SubscriptionStatus {
         let entitlementID = pricingConfig.entitlementID
 
-        if let nonSubscriptionProductIDs = info.nonSubscriptions.map({ $0.productIdentifier }) as? [String],
-           nonSubscriptionProductIDs.contains(pricingConfig.lifetimeProductID) {
+        if info.nonSubscriptions.contains(where: {
+            $0.productIdentifier == pricingConfig.lifetimeProductID
+        }) {
             return .lifetime
         }
 
@@ -166,8 +167,7 @@ final class RevenueCatGateway: PaymentGateway {
             return .trial(expiresAt: expiresAt)
         }
 
-        if let billingIssueDetectedAt = entitlement.billingIssueDetectedAt,
-           billingIssueDetectedAt < Date() {
+        if entitlement.billingIssueDetectedAt != nil {
             return .grace(plan: plan, expiresAt: expiresAt)
         }
 
@@ -190,7 +190,7 @@ final class RevenueCatGateway: PaymentGateway {
               let status = try? JSONDecoder().decode(SubscriptionStatus.self, from: data) else {
             return
         }
-        subscriptionStatus = status
+        subscriptionStatus = status.resolved()
     }
 
     private func cacheStatus(_ status: SubscriptionStatus) {

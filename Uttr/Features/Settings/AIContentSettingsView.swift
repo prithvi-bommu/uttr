@@ -13,7 +13,7 @@ struct AIContentSettingsView: View {
     var body: some View {
         Form {
             Section("AI Content") {
-                if let gateway = paymentGateway, !gateway.subscriptionStatus.hasPremiumAccess {
+                if paymentGateway?.subscriptionStatus.hasPremiumAccess != true {
                     VStack(alignment: .leading, spacing: 8) {
                         Label("Uttr Pro Feature", systemImage: "lock.fill")
                             .font(.headline)
@@ -52,7 +52,7 @@ struct AIContentSettingsView: View {
                 }
             }
 
-            if store.settings.aiContent.enabled, paymentGateway?.subscriptionStatus.hasPremiumAccess != false {
+            if store.settings.aiContent.enabled, paymentGateway?.subscriptionStatus.hasPremiumAccess == true {
                 Section("Provider") {
                     Picker("Backend:", selection: Binding(
                         get: { store.settings.aiContent.provider },
