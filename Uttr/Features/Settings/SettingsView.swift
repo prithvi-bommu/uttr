@@ -4,6 +4,7 @@ struct SettingsView: View {
     @State private var store: ConfigurationStore
     private let appState: AppState
     private let permissionService: PermissionChecking
+    private let paymentGateway: any PaymentGateway
     private let onBeginCapture: () -> Void
     private let onCancelCapture: () -> Void
     private let transcriptionCoordinator: TranscriptionCoordinator?
@@ -16,6 +17,7 @@ struct SettingsView: View {
         store: ConfigurationStore,
         appState: AppState,
         permissionService: PermissionChecking,
+        paymentGateway: any PaymentGateway,
         onBeginCapture: @escaping () -> Void,
         onCancelCapture: @escaping () -> Void,
         transcriptionCoordinator: TranscriptionCoordinator? = nil,
@@ -27,6 +29,7 @@ struct SettingsView: View {
         self._store = State(initialValue: store)
         self.appState = appState
         self.permissionService = permissionService
+        self.paymentGateway = paymentGateway
         self.onBeginCapture = onBeginCapture
         self.onCancelCapture = onCancelCapture
         self.transcriptionCoordinator = transcriptionCoordinator
@@ -55,10 +58,10 @@ struct SettingsView: View {
             )
             .tabItem { Label("Transcription", systemImage: "waveform") }
 
-            PolishSettingsView(store: store)
+            PolishSettingsView(store: store, paymentGateway: paymentGateway)
                 .tabItem { Label("Text Polish", systemImage: "sparkles") }
 
-            AIContentSettingsView(store: store, onConfigChanged: onAIConfigChanged)
+            AIContentSettingsView(store: store, paymentGateway: paymentGateway, onConfigChanged: onAIConfigChanged)
                 .tabItem { Label("AI Content", systemImage: "wand.and.stars") }
 
             PermissionsSettingsView(permissionService: permissionService)
@@ -66,6 +69,9 @@ struct SettingsView: View {
 
             PrivacySettingsView()
                 .tabItem { Label("Privacy", systemImage: "hand.raised") }
+
+            SubscriptionSettingsView(paymentGateway: paymentGateway)
+                .tabItem { Label("Subscription", systemImage: "creditcard") }
         }
         .frame(minWidth: 500, minHeight: 400)
     }
