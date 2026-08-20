@@ -20,7 +20,7 @@ final class AppEnvironment {
     private let logger = Logger(subsystem: "com.uttr.app", category: "app")
 
     private init() {
-        let gateway = RevenueCatGateway(pricingConfig: PricingConfigLoader.load())
+        let gateway = EntitlementKitPaymentGateway(pricingConfig: PricingConfigLoader.load())
         self.paymentGateway = gateway
         Task { await gateway.configure() }
 

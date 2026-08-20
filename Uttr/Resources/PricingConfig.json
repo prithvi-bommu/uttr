@@ -4,5 +4,18 @@
     "yearlyProductID": "yearly",
     "monthlyProductID": "monthly",
     "trialDurationDays": 3,
-    "entitlementID": "uttr_pro"
+    "entitlementID": "uttr_pro",
+    "webPurchaseLink": "",
+    "callbackScheme": "uttr",
+    "packageIDsByPlanID": {
+        "lifetime": "$rc_lifetime",
+        "yearly": "$rc_annual",
+        "monthly": "$rc_monthly"
+    },
+    "displayPrices": {
+        "lifetime": "$79.00",
+        "yearly": "$39.00",
+        "monthly": "$5.99"
+    },
+    "customerPortalLink": ""
 }

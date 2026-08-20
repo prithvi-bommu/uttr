@@ -4,6 +4,7 @@ import Foundation
 @MainActor
 final class MockPaymentGateway: PaymentGateway {
     var subscriptionStatus: SubscriptionStatus = .free
+    var subscriptionManagementURL: URL?
     var productsToReturn: [SubscriptionProduct] = []
     var purchaseResult: PurchaseResult = .success
     var purchaseError: PaymentError?
@@ -11,6 +12,7 @@ final class MockPaymentGateway: PaymentGateway {
     var configureCalled = false
     var purchasedProducts: [SubscriptionProduct] = []
     var restoreCalled = false
+    var handledCallbackURLs: [URL] = []
 
     func configure() async {
         configureCalled = true
@@ -33,5 +35,9 @@ final class MockPaymentGateway: PaymentGateway {
 
     func availableProducts() async -> [SubscriptionProduct] {
         productsToReturn
+    }
+
+    func handleCallbackURL(_ url: URL) async {
+        handledCallbackURLs.append(url)
     }
 }

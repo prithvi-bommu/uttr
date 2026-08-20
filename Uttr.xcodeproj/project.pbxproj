@@ -51,7 +51,9 @@
 		A1B2C3D4E5F6071829304A5D /* WhisperKit in Frameworks */ = {isa = PBXBuildFile; productRef = A1B2C3D4E5F6071829304A5C /* WhisperKit */; };
 		8D307DACA0887C9D323CA976 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = 4EB5721DFDFFAB66BFC5E765 /* Sparkle */; };
 		RC0001BUILDFILE0001 /* RevenueCat in Frameworks */ = {isa = PBXBuildFile; productRef = RC0001PRODREF0001 /* RevenueCat */; };
-		RC0001BUILDFILE0002 /* RevenueCatUI in Frameworks */ = {isa = PBXBuildFile; productRef = RC0001PRODREF0002 /* RevenueCatUI */; };
+		EK0001BUILDFILE0001 /* EntitlementKitCore in Frameworks */ = {isa = PBXBuildFile; productRef = EK0001PRODREF0001 /* EntitlementKitCore */; };
+		EK0001BUILDFILE0002 /* EntitlementKitRevenueCat in Frameworks */ = {isa = PBXBuildFile; productRef = EK0001PRODREF0002 /* EntitlementKitRevenueCat */; };
+		EK0001BUILDFILE0003 /* EntitlementKitCore in Frameworks */ = {isa = PBXBuildFile; productRef = EK0001PRODREF0003 /* EntitlementKitCore */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -62,7 +64,8 @@
 				A1B2C3D4E5F6071829304A5D /* WhisperKit in Frameworks */,
 				8D307DACA0887C9D323CA976 /* Sparkle in Frameworks */,
 				RC0001BUILDFILE0001 /* RevenueCat in Frameworks */,
-				RC0001BUILDFILE0002 /* RevenueCatUI in Frameworks */,
+				EK0001BUILDFILE0001 /* EntitlementKitCore in Frameworks */,
+				EK0001BUILDFILE0002 /* EntitlementKitRevenueCat in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -70,6 +73,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				EK0001BUILDFILE0003 /* EntitlementKitCore in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -118,7 +122,8 @@
 				A1B2C3D4E5F6071829304A5C /* WhisperKit */,
 				4EB5721DFDFFAB66BFC5E765 /* Sparkle */,
 				RC0001PRODREF0001 /* RevenueCat */,
-				RC0001PRODREF0002 /* RevenueCatUI */,
+				EK0001PRODREF0001 /* EntitlementKitCore */,
+				EK0001PRODREF0002 /* EntitlementKitRevenueCat */,
 			);
 			productName = Uttr;
 			productReference = 6165CF083023BC4E0085D938 /* Uttr.app */;
@@ -142,6 +147,7 @@
 			);
 			name = UttrTests;
 			packageProductDependencies = (
+				EK0001PRODREF0003 /* EntitlementKitCore */,
 			);
 			productName = UttrTests;
 			productReference = 6165CF093023BC4E0085D938 /* UttrTests.xctest */;
@@ -206,6 +212,7 @@
 				A1B2C3D4E5F6071829304A5B /* XCRemoteSwiftPackageReference "WhisperKit" */,
 				D540DF137FECA3421A83E18F /* XCRemoteSwiftPackageReference "Sparkle" */,
 				RC0001PKGREF00001 /* XCRemoteSwiftPackageReference "purchases-ios" */,
+				EK0001PKGREF00001 /* XCRemoteSwiftPackageReference "entitlement-kit-swift" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = E0000002;
@@ -587,6 +594,14 @@
 				minimumVersion = 5.0.0;
 			};
 		};
+		EK0001PKGREF00001 /* XCRemoteSwiftPackageReference "entitlement-kit-swift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/prithvi-bommu/entitlement-kit-swift.git";
+			requirement = {
+				kind = exactVersion;
+				version = 0.2.0;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -605,10 +620,20 @@
 			package = RC0001PKGREF00001 /* XCRemoteSwiftPackageReference "purchases-ios" */;
 			productName = RevenueCat;
 		};
-		RC0001PRODREF0002 /* RevenueCatUI */ = {
+		EK0001PRODREF0001 /* EntitlementKitCore */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = RC0001PKGREF00001 /* XCRemoteSwiftPackageReference "purchases-ios" */;
-			productName = RevenueCatUI;
+			package = EK0001PKGREF00001 /* XCRemoteSwiftPackageReference "entitlement-kit-swift" */;
+			productName = EntitlementKitCore;
+		};
+		EK0001PRODREF0002 /* EntitlementKitRevenueCat */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = EK0001PKGREF00001 /* XCRemoteSwiftPackageReference "entitlement-kit-swift" */;
+			productName = EntitlementKitRevenueCat;
+		};
+		EK0001PRODREF0003 /* EntitlementKitCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = EK0001PKGREF00001 /* XCRemoteSwiftPackageReference "entitlement-kit-swift" */;
+			productName = EntitlementKitCore;
 		};
 /* End XCSwiftPackageProductDependency section */
 

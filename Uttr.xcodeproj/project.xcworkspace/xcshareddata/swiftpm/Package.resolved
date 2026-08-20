@@ -1,12 +1,21 @@
 {
-  "originHash" : "7e62f96ab8765af37526adfed2801798fd5f62e312de4eff93d701aec43d5a91",
+  "originHash" : "cd576b2fbcdd9c47013c398a86dae20c239c0b1b6d379684082397b79d083be9",
   "pins" : [
+    {
+      "identity" : "entitlement-kit-swift",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/prithvi-bommu/entitlement-kit-swift.git",
+      "state" : {
+        "revision" : "33ae3c63cdeacd39ca87a8c82ce911d74b1af2ac",
+        "version" : "0.2.0"
+      }
+    },
     {
       "identity" : "purchases-ios",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/RevenueCat/purchases-ios.git",
       "state" : {
-        "revision" : "42c3ca7c0809011e2fbb5f175cee6dae37b318b1",
+        "revision" : "5d24ed423830598cf28e3f69d9392464c4c023c5",
         "version" : "5.83.2"
       }
     },

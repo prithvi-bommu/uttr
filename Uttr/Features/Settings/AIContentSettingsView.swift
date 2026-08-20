@@ -25,12 +25,16 @@ struct AIContentSettingsView: View {
                         )
                             .font(.caption)
                             .foregroundStyle(.secondary)
-                        Button("Upgrade to Uttr Pro") {
-                            showPaywall = true
+                        // Offered only when there is a gateway to buy through;
+                        // the paywall sheet has nothing to present without one.
+                        if paymentGateway != nil {
+                            Button("Upgrade to Uttr Pro") {
+                                showPaywall = true
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .controlSize(.small)
+                            .padding(.top, 2)
                         }
-                        .buttonStyle(.borderedProminent)
-                        .controlSize(.small)
-                        .padding(.top, 2)
                     }
                     .padding(.vertical, 4)
                 } else {
@@ -106,14 +110,12 @@ struct AIContentSettingsView: View {
         .formStyle(.grouped)
         .padding()
         .sheet(isPresented: $showPaywall) {
-            UttrPaywallView(
-                onDismiss: { showPaywall = false },
-                onPurchaseCompleted: {
-                    showPaywall = false
-                    try? store.update { $0.aiContent.enabled = true }
-                    onConfigChanged?()
-                }
-            )
+            if let paymentGateway {
+                UttrPaywallView(
+                    paymentGateway: paymentGateway,
+                    onDismiss: { showPaywall = false }
+                )
+            }
         }
     }
 
