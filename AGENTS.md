@@ -150,9 +150,12 @@ billing URLs before a release DMG is built.
 - **Unlimited devices.** EntitlementKit deliberately enforces no device cap.
 - **Installation identity is `UserDefaults`-backed** and does not survive
   deleting the app; a reinstalling customer must redeem their email link again.
-- **Offline cache trust** — `com.uttr.cachedSubscriptionStatus` is plain
+- **Offline cache trust** — `com.uttr.cachedEntitlementStatus` is plain
   `UserDefaults` and user-editable. It supports offline availability, not
   tamper-proof entitlement storage; RevenueCat is authoritative when reachable.
+  The StoreKit-era `com.uttr.cachedSubscriptionStatus` key is abandoned rather
+  than reused: it stores a different JSON shape, and decoding it as an
+  `EntitlementStatus` would silently downgrade an offline subscriber to `.free`.
 
 ## Commits and pull requests
 

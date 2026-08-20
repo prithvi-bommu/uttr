@@ -25,7 +25,14 @@ final class EntitlementKitPaymentGateway: PaymentGateway {
     @ObservationIgnored private var cancellables = Set<AnyCancellable>()
 
     private static let installationIDKey = "com.uttr.installationID"
-    private static let cachedStatusKey = "com.uttr.cachedSubscriptionStatus"
+
+    /// Deliberately not the StoreKit gateway's `com.uttr.cachedSubscriptionStatus`.
+    /// That key holds `SubscriptionStatus` JSON, which is shaped differently from
+    /// the `EntitlementStatus` JSON written here: `.subscribed`/`.grace` encode a
+    /// `plan` key rather than `planID`, so reusing the key would fail to decode
+    /// and silently downgrade an offline subscriber to `.free`. The stale value is
+    /// left in place so a real migration remains possible.
+    private static let cachedStatusKey = "com.uttr.cachedEntitlementStatus"
 
     var subscriptionManagementURL: URL? {
         config.customerPortalURL
