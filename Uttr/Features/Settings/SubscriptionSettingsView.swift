@@ -3,7 +3,6 @@ import SwiftUI
 struct SubscriptionSettingsView: View {
     let paymentGateway: any PaymentGateway
     @State private var showPaywall = false
-    @State private var isRestoring = false
     @State private var restoreMessage: String?
 
     var body: some View {
@@ -39,9 +38,9 @@ struct SubscriptionSettingsView: View {
                     }
                 }
 
-                Section {
-                    Button("Manage Subscription") {
-                        if let url = URL(string: "https://apps.apple.com/account/subscriptions") {
+                if let url = paymentGateway.subscriptionManagementURL {
+                    Section {
+                        Button("Manage Subscription") {
                             NSWorkspace.shared.open(url)
                         }
                     }
@@ -54,11 +53,19 @@ struct SubscriptionSettingsView: View {
                     .buttonStyle(.borderedProminent)
                 }
 
-                Section {
-                    Button(isRestoring ? "Restoring..." : "Restore Purchases") {
+                Section("Already Purchased?") {
+                    Text("""
+                        Uttr Pro is tied to your billing email, not an Apple ID. \
+                        Open the redemption link from your purchase email on this \
+                        Mac to unlock it here.
+                        """)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+
+                    Button("Open Subscription Portal") {
                         restore()
                     }
-                    .disabled(isRestoring)
+                    .disabled(paymentGateway.subscriptionManagementURL == nil)
 
                     if let restoreMessage {
                         Text(restoreMessage)
@@ -72,8 +79,8 @@ struct SubscriptionSettingsView: View {
         .padding()
         .sheet(isPresented: $showPaywall) {
             UttrPaywallView(
-                onDismiss: { showPaywall = false },
-                onPurchaseCompleted: { showPaywall = false }
+                paymentGateway: paymentGateway,
+                onDismiss: { showPaywall = false }
             )
         }
     }
@@ -129,20 +136,13 @@ struct SubscriptionSettingsView: View {
     }
 
     private func restore() {
-        isRestoring = true
         restoreMessage = nil
         Task {
             do {
                 try await paymentGateway.restorePurchases()
-                if paymentGateway.subscriptionStatus.hasPremiumAccess {
-                    restoreMessage = "Subscription restored."
-                } else {
-                    restoreMessage = "No active subscription found."
-                }
             } catch {
                 restoreMessage = error.localizedDescription
             }
-            isRestoring = false
         }
     }
 }

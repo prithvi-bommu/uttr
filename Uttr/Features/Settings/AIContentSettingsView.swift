@@ -106,14 +106,12 @@ struct AIContentSettingsView: View {
         .formStyle(.grouped)
         .padding()
         .sheet(isPresented: $showPaywall) {
-            UttrPaywallView(
-                onDismiss: { showPaywall = false },
-                onPurchaseCompleted: {
-                    showPaywall = false
-                    try? store.update { $0.aiContent.enabled = true }
-                    onConfigChanged?()
-                }
-            )
+            if let paymentGateway {
+                UttrPaywallView(
+                    paymentGateway: paymentGateway,
+                    onDismiss: { showPaywall = false }
+                )
+            }
         }
     }
 
