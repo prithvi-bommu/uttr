@@ -34,7 +34,7 @@ struct SubscriptionStatusTests {
 
     @Test("grace period has premium access")
     func graceHasPremium() {
-        let status = SubscriptionStatus.grace(plan: .yearly, expiresAt: Date().addingTimeInterval(3600))
+        let status = SubscriptionStatus.grace(plan: .annual, expiresAt: Date().addingTimeInterval(3600))
         #expect(status.hasPremiumAccess)
     }
 
@@ -79,7 +79,7 @@ struct SubscriptionStatusTests {
     @Test("subscribed expiration date is returned")
     func subscribedExpiration() {
         let date = Date().addingTimeInterval(86400)
-        let status = SubscriptionStatus.subscribed(plan: .yearly, expiresAt: date, willRenew: false)
+        let status = SubscriptionStatus.subscribed(plan: .annual, expiresAt: date, willRenew: false)
         #expect(status.expirationDate == date)
     }
 
@@ -100,7 +100,7 @@ struct SubscriptionStatusTests {
     @Test("expired cache remains expired")
     func expiredResolution() {
         let expiredAt = now.addingTimeInterval(-1)
-        let status = SubscriptionStatus.expired(plan: .yearly, expiredAt: expiredAt)
+        let status = SubscriptionStatus.expired(plan: .annual, expiredAt: expiredAt)
         #expect(status.resolved(asOf: now) == status)
     }
 
@@ -130,7 +130,7 @@ struct SubscriptionStatusTests {
     @Test("active subscribed cache preserves renewal state")
     func activeSubscriptionResolution() {
         let status = SubscriptionStatus.subscribed(
-            plan: .yearly, expiresAt: now.addingTimeInterval(1), willRenew: false
+            plan: .annual, expiresAt: now.addingTimeInterval(1), willRenew: false
         )
         #expect(status.resolved(asOf: now) == status)
     }
@@ -138,9 +138,9 @@ struct SubscriptionStatusTests {
     @Test("expired grace cache preserves its plan")
     func expiredGraceResolution() {
         let expiresAt = now.addingTimeInterval(-1)
-        let status = SubscriptionStatus.grace(plan: .yearly, expiresAt: expiresAt)
+        let status = SubscriptionStatus.grace(plan: .annual, expiresAt: expiresAt)
         let resolved = status.resolved(asOf: now)
-        #expect(resolved == .expired(plan: .yearly, expiredAt: expiresAt))
+        #expect(resolved == .expired(plan: .annual, expiredAt: expiresAt))
         #expect(!resolved.hasPremiumAccess)
     }
 
@@ -165,9 +165,9 @@ struct SubscriptionStatusTests {
         .lifetime,
         .trial(expiresAt: Date(timeIntervalSince1970: 1_700_000_000)),
         .subscribed(plan: .monthly, expiresAt: Date(timeIntervalSince1970: 1_700_000_000), willRenew: true),
-        .subscribed(plan: .yearly, expiresAt: Date(timeIntervalSince1970: 1_700_000_000), willRenew: false),
+        .subscribed(plan: .annual, expiresAt: Date(timeIntervalSince1970: 1_700_000_000), willRenew: false),
         .expired(plan: .monthly, expiredAt: Date(timeIntervalSince1970: 1_700_000_000)),
-        .grace(plan: .yearly, expiresAt: Date(timeIntervalSince1970: 1_700_000_000)),
+        .grace(plan: .annual, expiresAt: Date(timeIntervalSince1970: 1_700_000_000)),
     ])
     func codableRoundTrip(status: SubscriptionStatus) throws {
         let data = try JSONEncoder().encode(status)
@@ -181,16 +181,16 @@ struct SubscriptionPlanTests {
 
     @Test("plan display names")
     func displayNames() {
-        #expect(SubscriptionPlan.lifetime.displayName == "Lifetime")
-        #expect(SubscriptionPlan.yearly.displayName == "Yearly")
+        #expect(SubscriptionPlan.weekly.displayName == "Weekly")
         #expect(SubscriptionPlan.monthly.displayName == "Monthly")
+        #expect(SubscriptionPlan.annual.displayName == "Annual")
     }
 
     @Test("plans encode to raw values")
     func rawValues() {
-        #expect(SubscriptionPlan.lifetime.rawValue == "lifetime")
-        #expect(SubscriptionPlan.yearly.rawValue == "yearly")
+        #expect(SubscriptionPlan.weekly.rawValue == "weekly")
         #expect(SubscriptionPlan.monthly.rawValue == "monthly")
+        #expect(SubscriptionPlan.annual.rawValue == "annual")
     }
 }
 

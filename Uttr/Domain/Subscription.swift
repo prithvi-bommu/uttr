@@ -51,15 +51,15 @@ enum SubscriptionStatus: Codable, Equatable, Sendable {
 }
 
 enum SubscriptionPlan: String, Codable, Equatable, Sendable {
-    case lifetime
-    case yearly
+    case weekly
     case monthly
+    case annual
 
     var displayName: String {
         switch self {
-        case .lifetime: "Lifetime"
-        case .yearly: "Yearly"
+        case .weekly: "Weekly"
         case .monthly: "Monthly"
+        case .annual: "Annual"
         }
     }
 }

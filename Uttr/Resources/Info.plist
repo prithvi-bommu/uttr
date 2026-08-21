@@ -25,7 +25,7 @@
 			<string>com.uttr.app.redemption</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<string>uttr</string>
+				<string>rc-889e05dd40</string>
 			</array>
 		</dict>
 	</array>

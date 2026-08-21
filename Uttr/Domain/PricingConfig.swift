@@ -2,9 +2,9 @@ import Foundation
 
 struct PricingConfig: Codable, Sendable {
     var revenueCatAPIKey: String = ""
-    var lifetimeProductID: String = "lifetime"
-    var yearlyProductID: String = "yearly"
+    var weeklyProductID: String = "weekly"
     var monthlyProductID: String = "monthly"
+    var annualProductID: String = "annual"
     var trialDurationDays: Int = 3
     var entitlementID: String = "uttr_pro"
 
@@ -31,9 +31,9 @@ struct PricingConfig: Codable, Sendable {
 
     init(
         revenueCatAPIKey: String = "",
-        lifetimeProductID: String = "lifetime",
-        yearlyProductID: String = "yearly",
+        weeklyProductID: String = "weekly",
         monthlyProductID: String = "monthly",
+        annualProductID: String = "annual",
         trialDurationDays: Int = 3,
         entitlementID: String = "uttr_pro",
         webPurchaseLink: String = "",
@@ -43,9 +43,9 @@ struct PricingConfig: Codable, Sendable {
         customerPortalLink: String = ""
     ) {
         self.revenueCatAPIKey = revenueCatAPIKey
-        self.lifetimeProductID = lifetimeProductID
-        self.yearlyProductID = yearlyProductID
+        self.weeklyProductID = weeklyProductID
         self.monthlyProductID = monthlyProductID
+        self.annualProductID = annualProductID
         self.trialDurationDays = trialDurationDays
         self.entitlementID = entitlementID
         self.webPurchaseLink = webPurchaseLink
@@ -58,9 +58,9 @@ struct PricingConfig: Codable, Sendable {
     init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         revenueCatAPIKey = try container.decodeIfPresent(String.self, forKey: .revenueCatAPIKey) ?? ""
-        lifetimeProductID = try container.decodeIfPresent(String.self, forKey: .lifetimeProductID) ?? "lifetime"
-        yearlyProductID = try container.decodeIfPresent(String.self, forKey: .yearlyProductID) ?? "yearly"
+        weeklyProductID = try container.decodeIfPresent(String.self, forKey: .weeklyProductID) ?? "weekly"
         monthlyProductID = try container.decodeIfPresent(String.self, forKey: .monthlyProductID) ?? "monthly"
+        annualProductID = try container.decodeIfPresent(String.self, forKey: .annualProductID) ?? "annual"
         trialDurationDays = try container.decodeIfPresent(Int.self, forKey: .trialDurationDays) ?? 3
         entitlementID = try container.decodeIfPresent(String.self, forKey: .entitlementID) ?? "uttr_pro"
         webPurchaseLink = try container.decodeIfPresent(String.self, forKey: .webPurchaseLink) ?? ""

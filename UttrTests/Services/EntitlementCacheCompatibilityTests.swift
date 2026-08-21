@@ -20,7 +20,7 @@ struct EntitlementCacheCompatibilityTests {
     @Test("a legacy subscribed cache cannot be read as an EntitlementStatus")
     func subscribedIsIncompatible() throws {
         let legacy = try JSONEncoder().encode(
-            SubscriptionStatus.subscribed(plan: .yearly, expiresAt: expiry, willRenew: true)
+            SubscriptionStatus.subscribed(plan: .annual, expiresAt: expiry, willRenew: true)
         )
         #expect((try? JSONDecoder().decode(EntitlementStatus.self, from: legacy)) == nil)
     }

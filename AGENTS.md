@@ -77,10 +77,16 @@ protocol, not on RevenueCat or EntitlementKit directly.
 
 ### Subscription plans
 
-Three plans configured in RevenueCat and `PricingConfig.json`:
-- **Lifetime** — one-time purchase (`lifetime`)
-- **Yearly** — auto-renewable with 3-day free trial (`yearly`)
-- **Monthly** — auto-renewable with 3-day free trial (`monthly`)
+Three plans configured in RevenueCat and `PricingConfig.json`, all
+auto-renewable with a 3-day free trial:
+- **Weekly** (`weekly`)
+- **Monthly** (`monthly`)
+- **Annual** (`annual`)
+
+Uttr does not sell a lifetime plan — deliberately. `SubscriptionStatus` still
+carries a `.lifetime` case with no associated plan, kept as the fallback for
+an active entitlement RevenueCat reports with no expiration date (e.g. a
+dashboard-granted comp), independent of the sellable plan catalog above.
 
 The entitlement identifier is **`uttr_pro`** and must match the RevenueCat
 dashboard exactly.

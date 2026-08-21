@@ -8,9 +8,9 @@ struct PricingConfigTests {
     @Test("default config has expected product IDs")
     func defaultProductIDs() {
         let config = PricingConfig()
-        #expect(config.lifetimeProductID == "lifetime")
-        #expect(config.yearlyProductID == "yearly")
+        #expect(config.weeklyProductID == "weekly")
         #expect(config.monthlyProductID == "monthly")
+        #expect(config.annualProductID == "annual")
     }
 
     @Test("default trial duration is 3 days")
@@ -23,16 +23,16 @@ struct PricingConfigTests {
         let json = """
         {
             "revenueCatAPIKey": "test_abc123",
-            "lifetimeProductID": "lifetime",
-            "yearlyProductID": "yearly",
+            "weeklyProductID": "weekly",
             "monthlyProductID": "monthly",
+            "annualProductID": "annual",
             "trialDurationDays": 7,
             "entitlementID": "Pro"
         }
         """
         let config = try JSONDecoder().decode(PricingConfig.self, from: Data(json.utf8))
         #expect(config.revenueCatAPIKey == "test_abc123")
-        #expect(config.lifetimeProductID == "lifetime")
+        #expect(config.weeklyProductID == "weekly")
         #expect(config.trialDurationDays == 7)
         #expect(config.entitlementID == "Pro")
     }
@@ -46,7 +46,7 @@ struct PricingConfigTests {
         let decoded = try JSONDecoder().decode(PricingConfig.self, from: data)
         #expect(decoded.revenueCatAPIKey == config.revenueCatAPIKey)
         #expect(decoded.entitlementID == config.entitlementID)
-        #expect(decoded.lifetimeProductID == config.lifetimeProductID)
+        #expect(decoded.weeklyProductID == config.weeklyProductID)
     }
 
     @Test("bundled PricingConfig.json loads successfully")

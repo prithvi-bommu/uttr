@@ -47,7 +47,7 @@ struct PaymentGatewayTests {
         gateway.purchaseResult = .cancelled
 
         let product = SubscriptionProduct(
-            id: "yearly", plan: .yearly,
+            id: "annual", plan: .annual,
             localizedPrice: "$39.99", localizedPeriod: "year",
             hasFreeTrial: true, trialDuration: "3 days"
         )
@@ -84,8 +84,8 @@ struct PaymentGatewayTests {
         let gateway = MockPaymentGateway()
         gateway.productsToReturn = [
             SubscriptionProduct(
-                id: "lifetime", plan: .lifetime, localizedPrice: "$49.99",
-                localizedPeriod: "forever", hasFreeTrial: false, trialDuration: nil
+                id: "weekly", plan: .weekly, localizedPrice: "$2.99",
+                localizedPeriod: "week", hasFreeTrial: true, trialDuration: "3 days"
             ),
             SubscriptionProduct(
                 id: "monthly", plan: .monthly, localizedPrice: "$5.99",
@@ -94,7 +94,7 @@ struct PaymentGatewayTests {
         ]
         let products = await gateway.availableProducts()
         #expect(products.count == 2)
-        #expect(products[0].plan == .lifetime)
+        #expect(products[0].plan == .weekly)
     }
 
     // MARK: - Feature gating logic
@@ -129,7 +129,7 @@ struct PaymentGatewayTests {
     @MainActor
     func expiredUserGated() {
         let gateway = MockPaymentGateway()
-        gateway.subscriptionStatus = .expired(plan: .yearly, expiredAt: Date())
+        gateway.subscriptionStatus = .expired(plan: .annual, expiredAt: Date())
         #expect(!gateway.subscriptionStatus.hasPremiumAccess)
     }
 
@@ -164,7 +164,7 @@ struct PaymentGatewayTests {
         #expect(gateway.subscriptionStatus.hasPremiumAccess)
         gateway.subscriptionStatus = .subscribed(plan: .monthly, expiresAt: future, willRenew: true)
         #expect(gateway.subscriptionStatus.hasPremiumAccess)
-        gateway.subscriptionStatus = .grace(plan: .yearly, expiresAt: future)
+        gateway.subscriptionStatus = .grace(plan: .annual, expiresAt: future)
         #expect(gateway.subscriptionStatus.hasPremiumAccess)
         gateway.subscriptionStatus = .lifetime
         #expect(gateway.subscriptionStatus.hasPremiumAccess)
@@ -180,7 +180,7 @@ struct PaymentGatewayTests {
         #expect(!gateway.subscriptionStatus.hasPremiumAccess)
 
         gateway.subscriptionStatus = .subscribed(
-            plan: .yearly, expiresAt: Date().addingTimeInterval(86400), willRenew: true
+            plan: .annual, expiresAt: Date().addingTimeInterval(86400), willRenew: true
         )
         #expect(gateway.subscriptionStatus.hasPremiumAccess)
     }

@@ -51,7 +51,11 @@ final class EntitlementKitPaymentGateway: PaymentGateway {
         self.gateway = RevenueCatEntitlementGateway(
             apiKey: pricingConfig.revenueCatAPIKey,
             entitlementID: pricingConfig.entitlementID,
-            lifetimePlanIDs: [pricingConfig.lifetimeProductID],
+            // Uttr sells no lifetime plan, so no product ID maps to it here. The
+            // adapter still treats an active entitlement with no expiration date
+            // as lifetime (e.g. a dashboard-granted comp), and SubscriptionStatus
+            // keeps that case for exactly that fallback.
+            lifetimePlanIDs: [],
             identity: UserDefaultsInstallationIdentity(key: Self.installationIDKey),
             statusStore: UserDefaultsEntitlementStatusStore(key: Self.cachedStatusKey)
         )
@@ -118,10 +122,11 @@ final class EntitlementKitPaymentGateway: PaymentGateway {
     }
 
     func availableProducts() async -> [SubscriptionProduct] {
-        let plans: [SubscriptionPlan] = [.lifetime, .yearly, .monthly]
+        // Best value first, shortest commitment last.
+        let plans: [SubscriptionPlan] = [.annual, .monthly, .weekly]
         return plans.compactMap { plan in
             guard let price = config.displayPrices[plan.rawValue] else { return nil }
-            let offersTrial = plan != .lifetime && config.trialDurationDays > 0
+            let offersTrial = config.trialDurationDays > 0
             return SubscriptionProduct(
                 id: productID(for: plan),
                 plan: plan,
@@ -156,17 +161,17 @@ final class EntitlementKitPaymentGateway: PaymentGateway {
 
     private func productID(for plan: SubscriptionPlan) -> String {
         switch plan {
-        case .lifetime: config.lifetimeProductID
-        case .yearly: config.yearlyProductID
+        case .weekly: config.weeklyProductID
         case .monthly: config.monthlyProductID
+        case .annual: config.annualProductID
         }
     }
 
     private func period(for plan: SubscriptionPlan) -> String {
         switch plan {
-        case .lifetime: "forever"
-        case .yearly: "year"
+        case .weekly: "week"
         case .monthly: "month"
+        case .annual: "year"
         }
     }
 }
