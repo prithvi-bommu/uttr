@@ -140,14 +140,28 @@ final class EntitlementKitPaymentGateway: PaymentGateway {
 
     // MARK: - Redemption callback
 
+    /// Whether an incoming URL belongs to this app's registered callback scheme.
+    ///
+    /// Matches `WebBillingConfiguration.handlesCallbackURL(_:)` semantics, but
+    /// reads the scheme straight off `config` so routing does not depend on
+    /// checkout being configured. Kept non-private so it can be tested.
+    func handlesCallbackURL(_ url: URL) -> Bool {
+        url.scheme?.caseInsensitiveCompare(config.callbackScheme) == .orderedSame
+    }
+
     /// Routed from `AppDelegate.application(_:open:)`. A redeemed link is not
     /// itself a grant — access follows `status.hasAccess`.
+    ///
+    /// Deliberately independent of `billing`. Redemption needs only the callback
+    /// scheme: `redeem(url:)` never reads the purchase link. Gating this on
+    /// `billing` silently dropped every real redemption link in any build with
+    /// the URL scheme registered but `webPurchaseLink` still empty.
     func handleCallbackURL(_ url: URL) async {
-        guard let billing, billing.handlesCallbackURL(url) else { return }
+        guard handlesCallbackURL(url) else { return }
 
         switch await gateway.redeem(url: url) {
         case .notRedemptionURL:
-            break
+            logger.warning("Callback URL matched our scheme but was not a redemption link")
         case .redeemed(let status) where status.hasAccess:
             logger.info("Redemption granted premium access")
         case .redeemed:
