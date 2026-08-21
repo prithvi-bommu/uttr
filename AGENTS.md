@@ -139,14 +139,29 @@ The deepest gate (provider closures) is authoritative.
 
 ### Building and testing
 
-| API key prefix | Build config | Behavior |
-| --- | --- | --- |
-| `test_` | **Debug** | Works normally — no force-close |
-| `test_` | **Release** | SDK force-closes the app to protect test purchases |
+The RevenueCat project contains more than one app, each with its own public SDK
+key. They are not interchangeable — an entitlement only resolves against the app
+its products are attached to.
 
-During development, always use a Debug build with the `test_` key.
-`Scripts/verify-release-pricing-key.sh` rejects `test_` keys and empty web
-billing URLs before a release DMG is built.
+| Key | RevenueCat app | What it exercises |
+| --- | --- | --- |
+| `test_…` | Test Store | Fake-purchase simulator. **No Web Billing, no redemption links.** Force-closes the app in Release builds. |
+| `strp_sb_…` | Uttr Pro (Stripe) | Stripe **sandbox** — real checkout and redemption flow using test payment methods. Current value. |
+| production key | Uttr Pro (Stripe) | Required for a shipping DMG. Issued once Stripe account verification completes. |
+
+The `uttr_pro` products (`weekly`, `monthly`, `annual`) are attached to **Uttr
+Pro (Stripe)**, so sandbox testing uses the `strp_sb_…` key with a Debug build.
+
+`packageIDsByPlanID` holds RevenueCat package **object IDs** (`pkg…`), not
+`$rc_…` lookup keys. The `package_id` query parameter on a Web Purchase Link
+only accepts the object ID; a lookup key is ignored and checkout silently fails
+to pre-select a plan. Read the IDs from
+`GET /v2/projects/{project_id}/offerings/{offering_id}/packages` or the package's
+"REST API Identifier" in the dashboard.
+
+`Scripts/verify-release-pricing-key.sh` blocks a release DMG when the config
+holds a `test_` key, any sandbox key (`_sb_`), a sandbox Web Purchase Link
+(`pay.rev.cat/sandbox/`), or an empty `webPurchaseLink` / `customerPortalLink`.
 
 ### Known limitations
 

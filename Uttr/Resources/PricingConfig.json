@@ -1,16 +1,16 @@
 {
-    "revenueCatAPIKey": "test_ykakiLclBAUwmcgmDBIDyWTVSom",
+    "revenueCatAPIKey": "strp_sb_JbGIuxhhReAfepkXomvexGir",
     "weeklyProductID": "weekly",
     "monthlyProductID": "monthly",
     "annualProductID": "annual",
     "trialDurationDays": 3,
     "entitlementID": "uttr_pro",
-    "webPurchaseLink": "",
+    "webPurchaseLink": "https://pay.rev.cat/sandbox/amyztfgojkonphpu/",
     "callbackScheme": "rc-889e05dd40",
     "packageIDsByPlanID": {
-        "weekly": "$rc_weekly",
-        "monthly": "$rc_monthly",
-        "annual": "$rc_annual"
+        "weekly": "pkge24998e4b26",
+        "monthly": "pkge18684766da",
+        "annual": "pkge0ca421a4fc"
     },
     "displayPrices": {
         "weekly": "$2.99",
