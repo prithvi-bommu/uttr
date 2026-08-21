@@ -16,5 +16,8 @@ protocol PaymentGateway: AnyObject {
     /// Handles a custom-scheme URL routed from the app delegate. Checkout runs
     /// in the browser, so entitlements arrive through a redemption callback
     /// rather than a purchase return value.
-    func handleCallbackURL(_ url: URL) async
+    ///
+    /// Returns the outcome so callers — and tests — can tell a URL that was
+    /// never ours from one that was routed and then failed.
+    func handleCallbackURL(_ url: URL) async -> RedemptionOutcome
 }

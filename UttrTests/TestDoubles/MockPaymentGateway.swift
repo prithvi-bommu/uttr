@@ -13,6 +13,7 @@ final class MockPaymentGateway: PaymentGateway {
     var purchasedProducts: [SubscriptionProduct] = []
     var restoreCalled = false
     var handledCallbackURLs: [URL] = []
+    var callbackOutcome: RedemptionOutcome = .notForThisApp
 
     func configure() async {
         configureCalled = true
@@ -37,7 +38,8 @@ final class MockPaymentGateway: PaymentGateway {
         productsToReturn
     }
 
-    func handleCallbackURL(_ url: URL) async {
+    func handleCallbackURL(_ url: URL) async -> RedemptionOutcome {
         handledCallbackURLs.append(url)
+        return callbackOutcome
     }
 }
