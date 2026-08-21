@@ -51,7 +51,11 @@ final class EntitlementKitPaymentGateway: PaymentGateway {
         self.gateway = RevenueCatEntitlementGateway(
             apiKey: pricingConfig.revenueCatAPIKey,
             entitlementID: pricingConfig.entitlementID,
-            lifetimePlanIDs: [pricingConfig.lifetimeProductID],
+            // Uttr sells no lifetime plan, so no product ID maps to it here. The
+            // adapter still treats an active entitlement with no expiration date
+            // as lifetime (e.g. a dashboard-granted comp), and SubscriptionStatus
+            // keeps that case for exactly that fallback.
+            lifetimePlanIDs: [],
             identity: UserDefaultsInstallationIdentity(key: Self.installationIDKey),
             statusStore: UserDefaultsEntitlementStatusStore(key: Self.cachedStatusKey)
         )
@@ -118,10 +122,11 @@ final class EntitlementKitPaymentGateway: PaymentGateway {
     }
 
     func availableProducts() async -> [SubscriptionProduct] {
-        let plans: [SubscriptionPlan] = [.lifetime, .yearly, .monthly]
+        // Best value first, shortest commitment last.
+        let plans: [SubscriptionPlan] = [.annual, .monthly, .weekly]
         return plans.compactMap { plan in
             guard let price = config.displayPrices[plan.rawValue] else { return nil }
-            let offersTrial = plan != .lifetime && config.trialDurationDays > 0
+            let offersTrial = config.trialDurationDays > 0
             return SubscriptionProduct(
                 id: productID(for: plan),
                 plan: plan,
@@ -135,20 +140,38 @@ final class EntitlementKitPaymentGateway: PaymentGateway {
 
     // MARK: - Redemption callback
 
+    /// Whether an incoming URL belongs to this app's registered callback scheme.
+    ///
+    /// Matches `WebBillingConfiguration.handlesCallbackURL(_:)` semantics, but
+    /// reads the scheme straight off `config` so routing does not depend on
+    /// checkout being configured.
+    private func handlesCallbackURL(_ url: URL) -> Bool {
+        url.scheme?.caseInsensitiveCompare(config.callbackScheme) == .orderedSame
+    }
+
     /// Routed from `AppDelegate.application(_:open:)`. A redeemed link is not
     /// itself a grant — access follows `status.hasAccess`.
-    func handleCallbackURL(_ url: URL) async {
-        guard let billing, billing.handlesCallbackURL(url) else { return }
+    ///
+    /// Deliberately independent of `billing`. Redemption needs only the callback
+    /// scheme: `redeem(url:)` never reads the purchase link. Gating this on
+    /// `billing` silently dropped every real redemption link in any build with
+    /// the URL scheme registered but `webPurchaseLink` still empty.
+    func handleCallbackURL(_ url: URL) async -> RedemptionOutcome {
+        guard handlesCallbackURL(url) else { return .notForThisApp }
 
         switch await gateway.redeem(url: url) {
         case .notRedemptionURL:
-            break
+            logger.warning("Callback URL matched our scheme but was not a redemption link")
+            return .notRedemptionLink
         case .redeemed(let status) where status.hasAccess:
             logger.info("Redemption granted premium access")
+            return .granted
         case .redeemed:
             logger.warning("Link redeemed, but not for the configured entitlement")
+            return .redeemedWithoutAccess
         case .failed(let reason):
             logger.error("Redemption failed: \(String(describing: reason), privacy: .public)")
+            return .failed
         }
     }
 
@@ -156,17 +179,17 @@ final class EntitlementKitPaymentGateway: PaymentGateway {
 
     private func productID(for plan: SubscriptionPlan) -> String {
         switch plan {
-        case .lifetime: config.lifetimeProductID
-        case .yearly: config.yearlyProductID
+        case .weekly: config.weeklyProductID
         case .monthly: config.monthlyProductID
+        case .annual: config.annualProductID
         }
     }
 
     private func period(for plan: SubscriptionPlan) -> String {
         switch plan {
-        case .lifetime: "forever"
-        case .yearly: "year"
+        case .weekly: "week"
         case .monthly: "month"
+        case .annual: "year"
         }
     }
 }

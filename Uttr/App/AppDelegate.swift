@@ -11,7 +11,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func application(_ application: NSApplication, open urls: [URL]) {
         Task { @MainActor in
             for url in urls {
-                await AppEnvironment.shared.paymentGateway.handleCallbackURL(url)
+                _ = await AppEnvironment.shared.paymentGateway.handleCallbackURL(url)
             }
         }
     }

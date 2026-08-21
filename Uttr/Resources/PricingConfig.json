@@ -1,21 +1,21 @@
 {
     "revenueCatAPIKey": "test_ykakiLclBAUwmcgmDBIDyWTVSom",
-    "lifetimeProductID": "lifetime",
-    "yearlyProductID": "yearly",
+    "weeklyProductID": "weekly",
     "monthlyProductID": "monthly",
+    "annualProductID": "annual",
     "trialDurationDays": 3,
     "entitlementID": "uttr_pro",
     "webPurchaseLink": "",
-    "callbackScheme": "uttr",
+    "callbackScheme": "rc-889e05dd40",
     "packageIDsByPlanID": {
-        "lifetime": "$rc_lifetime",
-        "yearly": "$rc_annual",
-        "monthly": "$rc_monthly"
+        "weekly": "$rc_weekly",
+        "monthly": "$rc_monthly",
+        "annual": "$rc_annual"
     },
     "displayPrices": {
-        "lifetime": "$79.00",
-        "yearly": "$39.00",
-        "monthly": "$5.99"
+        "weekly": "$2.99",
+        "monthly": "$5.99",
+        "annual": "$39.00"
     },
     "customerPortalLink": ""
 }

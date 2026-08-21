@@ -87,7 +87,7 @@ struct UttrPaywallView: View {
                 VStack(alignment: .trailing, spacing: 2) {
                     Text(product.localizedPrice)
                         .font(.headline)
-                    Text(product.plan == .lifetime ? "one-time" : "per \(product.localizedPeriod)")
+                    Text("per \(product.localizedPeriod)")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }

@@ -5,14 +5,14 @@ import Foundation
 /// type. Kept out of the gateway so it can be tested without configuring the
 /// RevenueCat SDK.
 struct SubscriptionStatusMapper: Sendable {
-    private let lifetimeProductID: String
-    private let yearlyProductID: String
+    private let weeklyProductID: String
     private let monthlyProductID: String
+    private let annualProductID: String
 
     init(config: PricingConfig) {
-        self.lifetimeProductID = config.lifetimeProductID
-        self.yearlyProductID = config.yearlyProductID
+        self.weeklyProductID = config.weeklyProductID
         self.monthlyProductID = config.monthlyProductID
+        self.annualProductID = config.annualProductID
     }
 
     func subscriptionStatus(from status: EntitlementStatus) -> SubscriptionStatus {
@@ -36,9 +36,9 @@ struct SubscriptionStatusMapper: Sendable {
     /// still grants access, it just displays as the monthly plan.
     func plan(for productID: String) -> SubscriptionPlan {
         switch productID {
-        case lifetimeProductID: .lifetime
-        case yearlyProductID: .yearly
+        case weeklyProductID: .weekly
         case monthlyProductID: .monthly
+        case annualProductID: .annual
         default: .monthly
         }
     }

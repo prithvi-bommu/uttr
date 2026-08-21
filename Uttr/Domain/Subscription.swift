@@ -51,15 +51,15 @@ enum SubscriptionStatus: Codable, Equatable, Sendable {
 }
 
 enum SubscriptionPlan: String, Codable, Equatable, Sendable {
-    case lifetime
-    case yearly
+    case weekly
     case monthly
+    case annual
 
     var displayName: String {
         switch self {
-        case .lifetime: "Lifetime"
-        case .yearly: "Yearly"
+        case .weekly: "Weekly"
         case .monthly: "Monthly"
+        case .annual: "Annual"
         }
     }
 }
@@ -77,6 +77,23 @@ enum PurchaseResult: Sendable {
     case success
     case cancelled
     case pending
+}
+
+/// Result of routing a custom-scheme URL to the payment gateway.
+///
+/// Uttr-owned rather than the billing SDK's own result type, so the domain
+/// layer stays free of any provider import.
+enum RedemptionOutcome: Equatable, Sendable {
+    /// The URL's scheme is not this app's callback scheme. Nothing was attempted.
+    case notForThisApp
+    /// Our scheme, but not a redemption link — some other deep link.
+    case notRedemptionLink
+    /// Redeemed, and the resulting entitlement grants premium access.
+    case granted
+    /// Redeemed, but for an entitlement this app does not grant.
+    case redeemedWithoutAccess
+    /// The provider rejected the redemption.
+    case failed
 }
 
 enum PaymentError: LocalizedError, Sendable {
